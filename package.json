@@ -1,0 +1,49 @@
+{
+  "name": "@gasboost/cli",
+  "version": "0.1.0",
+  "description": "Developer tooling for the Gasboost ecosystem",
+  "type": "module",
+  "bin": {
+    "gasboost": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "pnpm build && vitest run tests/Cli.e2e.spec.ts --config vitest.e2e.config.ts",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "pack:check": "pnpm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "jiti": "^2.7.0"
+  },
+  "devDependencies": {
+    "@gasboost/realtime-firebase": "^0.1.0",
+    "@types/node": "^24.13.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  },
+  "keywords": [
+    "google-apps-script",
+    "gas",
+    "firebase",
+    "realtime-database",
+    "cli",
+    "gasboost"
+  ],
+  "license": "MIT",
+  "packageManager": "pnpm@10.18.0"
+}
