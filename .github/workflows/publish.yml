@@ -74,17 +74,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Typecheck cli
+        run: pnpm --filter @gasboost/cli typecheck
 
-      - name: Test
-        run: pnpm test
+      - name: Test cli
+        run: pnpm --filter @gasboost/cli test
 
-      - name: Build
-        run: pnpm build
+      - name: Build cli
+        run: pnpm --filter @gasboost/cli build
 
-      - name: Verify package contents
-        run: pnpm pack
+      - name: Verify package contents cli
+        run: pnpm --filter @gasboost/cli pack
 
-      - name: Publish
-        run: pnpm publish --access public --no-git-checks
+      - name: Publish cli
+        run: pnpm --filter @gasboost/cli publish --access public --no-git-checks
