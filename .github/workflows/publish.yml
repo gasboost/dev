@@ -13,6 +13,8 @@ jobs:
   check-version:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      PACKAGE_DIR: packages/cli
 
     permissions:
       contents: read
@@ -35,8 +37,8 @@ jobs:
       - name: Check package version
         id: version
         run: |
-          NAME=$(node -p "require('./package.json').name")
-          VERSION=$(node -p "require('./package.json').version")
+          NAME=$(node -p "require('./${PACKAGE_DIR}/package.json').name")
+          VERSION=$(node -p "require('./${PACKAGE_DIR}/package.json').version")
 
           echo "${NAME}@${VERSION}"
 
