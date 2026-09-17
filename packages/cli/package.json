@@ -22,7 +22,8 @@
     "test": "vitest run",
     "test:e2e": "pnpm build && vitest run tests/Cli.e2e.spec.ts --config vitest.e2e.config.ts",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
-    "pack:check": "pnpm pack"
+    "pack:check": "pnpm pack",
+    "smoke": "node dist/bin.js --help"
   },
   "engines": {
     "node": ">=24"

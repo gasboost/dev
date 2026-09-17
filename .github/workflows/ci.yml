@@ -45,5 +45,4 @@ jobs:
         run: pnpm --filter @gasboost/cli pack:check
 
       - name: Smoke test executable
-        run: |
-          node dist/bin.js --help
+        run: pnpm --filter @gasboost/cli smoke
