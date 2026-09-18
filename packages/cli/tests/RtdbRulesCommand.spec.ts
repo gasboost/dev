@@ -2,8 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { GasboostConfigLoader } from "../src/config/GasboostConfigLoader.js";
-import { ModuleLoader } from "../src/module/ModuleLoader.js";
+import { loadGasboostConfig, ModuleLoader } from "@gasboost/config";
 import { RtdbRulesCommand } from "../src/rtdb/RtdbRulesCommand.js";
 import { RtdbRulesWriter } from "../src/rtdb/RtdbRulesWriter.js";
 
@@ -90,10 +89,7 @@ describe("RtdbRulesCommand", () => {
     const moduleLoader = new ModuleLoader(root);
 
     const command = new RtdbRulesCommand({
-      configLoader: new GasboostConfigLoader({
-        projectRoot: root,
-        moduleLoader,
-      }),
+      loadConfig: () => loadGasboostConfig({ projectRoot: root }),
       moduleLoader,
       writer: new RtdbRulesWriter(root),
     });
@@ -126,10 +122,7 @@ describe("RtdbRulesCommand", () => {
     const moduleLoader = new ModuleLoader(root);
 
     const command = new RtdbRulesCommand({
-      configLoader: new GasboostConfigLoader({
-        projectRoot: root,
-        moduleLoader,
-      }),
+      loadConfig: () => loadGasboostConfig({ projectRoot: root }),
       moduleLoader,
       writer: new RtdbRulesWriter(root),
     });
@@ -170,10 +163,7 @@ describe("RtdbRulesCommand", () => {
     const moduleLoader = new ModuleLoader(root);
 
     const command = new RtdbRulesCommand({
-      configLoader: new GasboostConfigLoader({
-        projectRoot: root,
-        moduleLoader,
-      }),
+      loadConfig: () => loadGasboostConfig({ projectRoot: root }),
       moduleLoader,
       writer: new RtdbRulesWriter(root),
     });
@@ -220,10 +210,7 @@ describe("RtdbRulesCommand", () => {
     const moduleLoader = new ModuleLoader(root);
 
     const command = new RtdbRulesCommand({
-      configLoader: new GasboostConfigLoader({
-        projectRoot: root,
-        moduleLoader,
-      }),
+      loadConfig: () => loadGasboostConfig({ projectRoot: root }),
       moduleLoader,
       writer: new RtdbRulesWriter(root),
     });

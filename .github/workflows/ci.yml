@@ -29,20 +29,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck cli
-        run: pnpm --filter @gasboost/cli typecheck
+      - name: Typecheck packages
+        run: pnpm -r typecheck
 
-      - name: Test cli
-        run: pnpm --filter @gasboost/cli test
+      - name: Test packages
+        run: pnpm -r test
 
-      - name: Build cli
-        run: pnpm --filter @gasboost/cli build
+      - name: Build packages
+        run: pnpm -r build
 
       - name: Test E2E cli
         run: pnpm --filter @gasboost/cli test:e2e
 
-      - name: Pack cli
-        run: pnpm --filter @gasboost/cli pack:check
+      - name: Pack packages
+        run: pnpm -r pack:check
 
       - name: Smoke test executable
         run: pnpm --filter @gasboost/cli smoke

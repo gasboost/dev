@@ -9,18 +9,13 @@ export class ModuleLoader {
 
   public constructor(projectRoot: string) {
     this.projectRoot = projectRoot;
-
     this.jiti = createJiti(
       pathToFileURL(resolve(projectRoot, "gasboost.config.ts")).href,
-      {
-        tsconfigPaths: true,
-      },
+      { tsconfigPaths: true },
     );
   }
 
   public async import<T extends object>(path: string): Promise<T> {
-    const modulePath = resolve(this.projectRoot, path);
-
-    return (await this.jiti.import(modulePath)) as T;
+    return (await this.jiti.import(resolve(this.projectRoot, path))) as T;
   }
 }

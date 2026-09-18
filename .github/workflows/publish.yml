@@ -10,47 +10,8 @@ on:
       - main
 
 jobs:
-  check-version:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    env:
-      PACKAGE_DIR: packages/cli
-
-    permissions:
-      contents: read
-
-    outputs:
-      publish: ${{ steps.version.outputs.publish }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-
-      - name: Check package version
-        id: version
-        run: |
-          NAME=$(node -p "require('./${PACKAGE_DIR}/package.json').name")
-          VERSION=$(node -p "require('./${PACKAGE_DIR}/package.json').version")
-
-          echo "${NAME}@${VERSION}"
-
-          if npm view "${NAME}@${VERSION}" version > /dev/null 2>&1; then
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
-
   publish:
-    needs: check-version
-    if: ${{ needs.check-version.outputs.publish == 'true' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -76,17 +37,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck cli
-        run: pnpm --filter @gasboost/cli typecheck
+      - name: Typecheck packages
+        run: pnpm -r typecheck
 
-      - name: Test cli
-        run: pnpm --filter @gasboost/cli test
+      - name: Test packages
+        run: pnpm -r test
 
-      - name: Build cli
-        run: pnpm --filter @gasboost/cli build
+      - name: Build packages
+        run: pnpm -r build
 
-      - name: Verify package contents cli
-        run: pnpm --filter @gasboost/cli pack
+      - name: Verify package contents
+        run: pnpm -r pack:check
 
-      - name: Publish cli
-        run: pnpm --filter @gasboost/cli publish --access public --no-git-checks
+      - name: Publish new package versions
+        run: |
+          for PACKAGE_DIR in packages/config packages/cli; do
+            NAME=$(node -p "require('./${PACKAGE_DIR}/package.json').name")
+            VERSION=$(node -p "require('./${PACKAGE_DIR}/package.json').version")
+
+            if npm view "${NAME}@${VERSION}" version > /dev/null 2>&1; then
+              echo "Skipping ${NAME}@${VERSION}: already published"
+            else
+              pnpm --filter "${NAME}" publish --access public --no-git-checks
+            fi
+          done

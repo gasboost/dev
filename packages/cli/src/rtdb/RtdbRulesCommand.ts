@@ -1,6 +1,5 @@
 import type { FirebaseRtdbRulesJson } from "@gasboost/realtime-firebase";
-import type { GasboostConfigLoader } from "../config/GasboostConfigLoader.js";
-import type { ModuleLoader } from "../module/ModuleLoader.js";
+import type { ModuleLoader, NormalizedGasboostConfig } from "@gasboost/config";
 import type { RtdbRulesWriter } from "./RtdbRulesWriter.js";
 
 type RtdbDefinition = {
@@ -12,45 +11,46 @@ type RtdbSourceModule = {
 };
 
 export class RtdbRulesCommand {
-  private readonly configLoader: GasboostConfigLoader;
+  private readonly loadConfig: () => Promise<NormalizedGasboostConfig>;
 
   private readonly moduleLoader: ModuleLoader;
 
   private readonly writer: RtdbRulesWriter;
 
   public constructor({
-    configLoader,
+    loadConfig,
     moduleLoader,
     writer,
   }: {
-    configLoader: GasboostConfigLoader;
+    loadConfig: () => Promise<NormalizedGasboostConfig>;
     moduleLoader: ModuleLoader;
     writer: RtdbRulesWriter;
   }) {
-    this.configLoader = configLoader;
+    this.loadConfig = loadConfig;
     this.moduleLoader = moduleLoader;
     this.writer = writer;
   }
 
   public async execute(): Promise<string> {
-    const config = await this.configLoader.load();
+    const config = await this.loadConfig();
+    const rtdb = config.firebase?.realtimeDatabase;
 
-    if (config.rtdb === undefined) {
+    if (rtdb === undefined) {
       throw new Error(
         "RTDB configuration was not found in gasboost.config.ts.",
       );
     }
 
-    if (config.rtdb.source.length === 0) {
-      throw new Error("rtdb.source must not be empty.");
+    if (rtdb.source.length === 0) {
+      throw new Error("firebase.realtimeDatabase.source must not be empty.");
     }
 
-    if (config.rtdb.out.length === 0) {
-      throw new Error("rtdb.out must not be empty.");
+    if (rtdb.out.length === 0) {
+      throw new Error("firebase.realtimeDatabase.out must not be empty.");
     }
 
     const source = await this.moduleLoader.import<RtdbSourceModule>(
-      config.rtdb.source,
+      rtdb.source,
     );
 
     if (
@@ -60,16 +60,16 @@ export class RtdbRulesCommand {
       typeof source.rtdb.rules !== "function"
     ) {
       throw new Error(
-        `RTDB source '${config.rtdb.source}' must export 'rtdb' with a rules() method.`,
+        `RTDB source '${rtdb.source}' must export 'rtdb' with a rules() method.`,
       );
     }
 
-    const rtdb = source.rtdb as RtdbDefinition;
+    const definition = source.rtdb as RtdbDefinition;
 
-    const rules = rtdb.rules();
+    const rules = definition.rules();
 
     return this.writer.write({
-      out: config.rtdb.out,
+      out: rtdb.out,
       rules,
     });
   }

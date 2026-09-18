@@ -1,24 +1,38 @@
 import { defineGasboostConfig, type GasboostConfig } from "../src/index.js";
 
 const config: GasboostConfig = defineGasboostConfig({
-  rtdb: {
-    source: "./src/backend/lib/rtdb.ts",
-    out: "./database.rules.json",
+  appsScript: { type: "webapp" },
+  firebase: {
+    realtimeDatabase: {
+      source: "./src/backend/lib/rtdb.ts",
+      out: "./database.rules.json",
+    },
   },
 });
 
 void config;
 
 defineGasboostConfig({
-  // @ts-expect-error source is required
-  rtdb: {
-    out: "./database.rules.json",
+  firebase: {
+    // @ts-expect-error source is required
+    realtimeDatabase: {
+      out: "./database.rules.json",
+    },
   },
 });
 
 defineGasboostConfig({
-  // @ts-expect-error out is required
+  firebase: {
+    // @ts-expect-error out is required
+    realtimeDatabase: {
+      source: "./src/backend/lib/rtdb.ts",
+    },
+  },
+});
+
+defineGasboostConfig({
   rtdb: {
     source: "./src/backend/lib/rtdb.ts",
+    out: "./database.rules.json",
   },
 });
