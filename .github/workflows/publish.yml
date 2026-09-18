@@ -13,6 +13,8 @@ jobs:
   check-version:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      PACKAGE_DIR: packages/cli
 
     permissions:
       contents: read
@@ -35,8 +37,8 @@ jobs:
       - name: Check package version
         id: version
         run: |
-          NAME=$(node -p "require('./package.json').name")
-          VERSION=$(node -p "require('./package.json').version")
+          NAME=$(node -p "require('./${PACKAGE_DIR}/package.json').name")
+          VERSION=$(node -p "require('./${PACKAGE_DIR}/package.json').version")
 
           echo "${NAME}@${VERSION}"
 
@@ -74,17 +76,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Typecheck cli
+        run: pnpm --filter @gasboost/cli typecheck
 
-      - name: Test
-        run: pnpm test
+      - name: Test cli
+        run: pnpm --filter @gasboost/cli test
 
-      - name: Build
-        run: pnpm build
+      - name: Build cli
+        run: pnpm --filter @gasboost/cli build
 
-      - name: Verify package contents
-        run: pnpm pack
+      - name: Verify package contents cli
+        run: pnpm --filter @gasboost/cli pack
 
-      - name: Publish
-        run: pnpm publish --access public --no-git-checks
+      - name: Publish cli
+        run: pnpm --filter @gasboost/cli publish --access public --no-git-checks
