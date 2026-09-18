@@ -21,7 +21,7 @@
     <main>
       <section class="status-band" aria-labelledby="project-title">
         <div>
-          <div class="eyebrow">PROJECT</div>
+          <div class="eyebrow">PROJECT LIFECYCLE</div>
           <h1 id="project-title">Loading...</h1>
         </div>
         <div class="runtime-status" id="runtime-status"><span></span> Connecting</div>
@@ -30,10 +30,10 @@
       <section class="workspace" aria-label="Project lifecycle">
         <nav class="sidebar" aria-label="Console sections">
           <button class="nav-item active" id="overview-nav" type="button"><i data-lucide="layout-dashboard"></i>Overview</button>
-          <button class="nav-item" type="button" disabled><i data-lucide="code-2"></i>Development</button>
-          <button class="nav-item" id="apps-script-nav" type="button" disabled><i data-lucide="file-code-2"></i>Apps Script</button>
-          <button class="nav-item" type="button" disabled><i data-lucide="rocket"></i>Deployment</button>
-          <button class="nav-item" type="button" disabled><i data-lucide="database"></i>Firebase</button>
+          <button class="nav-item" id="development-nav" type="button"><i data-lucide="code-2"></i>Development</button>
+          <button class="nav-item" id="apps-script-nav" type="button"><i data-lucide="file-code-2"></i>Apps Script</button>
+          <button class="nav-item" id="deployment-nav" type="button"><i data-lucide="rocket"></i>Deployment</button>
+          <button class="nav-item" id="firebase-nav" type="button"><i data-lucide="database"></i>Firebase</button>
         </nav>
 
         <div class="content" id="overview-view">
@@ -47,12 +47,12 @@
           <div class="capability-list">
             <article class="capability-row">
               <div class="capability-icon apps"><i data-lucide="file-code-2"></i></div>
-              <div><h3>Apps Script</h3><p>Web application lifecycle</p></div>
+              <div><h3>Apps Script</h3><p>Desired capability from gasboost.config.ts. Lifecycle controls stay available either way.</p></div>
               <div class="badge" id="apps-script-status">Checking</div>
             </article>
             <article class="capability-row">
               <div class="capability-icon firebase"><i data-lucide="database"></i></div>
-              <div><h3>Firebase Realtime Database</h3><p>Rules generation and deployment</p></div>
+              <div><h3>Firebase Realtime Database</h3><p>Rules generation and deployment capability.</p></div>
               <div class="badge" id="firebase-status">Checking</div>
             </article>
           </div>
@@ -60,6 +60,23 @@
           <section class="activity" aria-labelledby="activity-title">
             <div class="activity-heading"><h2 id="activity-title">Activity</h2><button id="clear-log" class="text-button" type="button">Clear</button></div>
             <div class="log" id="log" role="log" aria-live="polite"></div>
+          </section>
+        </div>
+
+        <div class="content" id="development-view" hidden>
+          <div class="section-heading">
+            <div><div class="eyebrow">DEVELOPMENT</div><h2>Local application</h2></div>
+          </div>
+          <div class="info-box"><span class="info-box__icon">i</span><div>Dev server operations are intentionally separated from arbitrary package script execution. Start/stop wiring can be added as registered operations without opening a shell launcher.</div></div>
+          <div class="action-bar">
+            <button class="command-button" type="button" disabled><i data-lucide="play"></i>Start</button>
+            <button class="command-button" type="button" disabled><i data-lucide="square"></i>Stop</button>
+            <button class="command-button" type="button" disabled><i data-lucide="refresh-cw"></i>Restart</button>
+            <button class="command-button" type="button" disabled><i data-lucide="external-link"></i>Open local app</button>
+          </div>
+          <section class="activity" aria-labelledby="development-activity-title">
+            <div class="activity-heading"><h2 id="development-activity-title">Activity</h2><button id="development-clear-log" class="text-button" type="button">Clear</button></div>
+            <div class="log" id="development-log" role="log" aria-live="polite"></div>
           </section>
         </div>
 
@@ -80,18 +97,124 @@
               <div><h3>Script project</h3><p class="mono-detail" id="apps-project-detail">Checking project</p></div>
               <div class="badge" id="apps-project-status">Checking</div>
             </div>
+            <div class="status-row">
+              <div class="capability-icon apps"><i data-lucide="file-code-2"></i></div>
+              <div><h3>Manifest</h3><p class="mono-detail" id="apps-manifest-detail">Checking appsscript.json</p></div>
+              <div class="badge" id="apps-manifest-status">Checking</div>
+            </div>
           </div>
 
           <div class="action-bar" aria-label="Apps Script actions">
             <button class="command-button" id="apps-login" type="button"><i data-lucide="log-in"></i>Sign in</button>
-            <button class="command-button" id="apps-create" type="button"><i data-lucide="plus"></i>Create project</button>
+            <button class="command-button" id="apps-user-settings" type="button"><i data-lucide="external-link"></i>User Settings</button>
             <button class="command-button" id="apps-open" type="button"><i data-lucide="external-link"></i>Open editor</button>
-            <button class="command-button primary" id="apps-push" type="button"><i data-lucide="upload"></i>Push files</button>
+            <button class="command-button primary" id="apps-push" type="button"><i data-lucide="upload"></i>Push</button>
+            <button class="command-button" id="apps-pull" type="button"><i data-lucide="refresh-cw"></i>Pull</button>
+            <button class="command-button" id="credential-register" type="button"><i data-lucide="key-round"></i>Register credentials</button>
+          </div>
+
+          <div class="setup-mode">
+            <button type="button" class="setup-mode__button setup-mode__button--active" data-setup-mode="existing">
+              <strong>Connect existing project</strong>
+              <span>Store the Script ID in .clasp.json and sync GAS_SCRIPT_ID to .env.</span>
+            </button>
+            <button type="button" class="setup-mode__button" data-setup-mode="new">
+              <strong>Create new</strong>
+              <span>Create a new Apps Script project through the registered clasp operation.</span>
+            </button>
+          </div>
+
+          <div class="panel" id="apps-connect-panel">
+            <div class="field">
+              <label for="script-id" class="field__label">Apps Script Script ID <span class="required">*</span></label>
+              <input id="script-id" placeholder="1BxImVS0XRA5nFMdKvBdBZjgmlUqptlbs..." />
+              <p class="field__help">Console writes .clasp.json and .env; no command copy is required.</p>
+            </div>
+            <button class="button button--primary" id="apps-connect" type="button"><i data-lucide="plus"></i>Connect project</button>
+          </div>
+
+          <div class="panel" id="apps-create-panel" hidden>
+            <div class="info-box"><span class="info-box__icon">i</span><div>This runs the fixed Apps Script project creation operation and refreshes state afterward.</div></div>
+            <button class="button button--primary" id="apps-create" type="button"><i data-lucide="plus"></i>Create project</button>
           </div>
 
           <section class="activity" aria-labelledby="apps-activity-title">
             <div class="activity-heading"><h2 id="apps-activity-title">Activity</h2><button id="apps-clear-log" class="text-button" type="button">Clear</button></div>
             <div class="log" id="apps-log" role="log" aria-live="polite"></div>
+          </section>
+        </div>
+
+        <div class="content" id="deployment-view" hidden>
+          <div class="section-heading">
+            <div><div class="eyebrow">DEPLOYMENT</div><h2>Apps Script deployment</h2></div>
+            <button class="icon-button light" id="deployment-refresh" type="button" title="Refresh deployment status" aria-label="Refresh deployment status"><i data-lucide="refresh-cw"></i></button>
+          </div>
+          <div class="status-list">
+            <div class="status-row">
+              <div class="capability-icon apps"><i data-lucide="file-code-2"></i></div>
+              <div><h3>Apps Script project</h3><p class="mono-detail" id="deployment-project-detail">Checking prerequisite</p></div>
+              <div class="badge" id="deployment-project-status">Checking</div>
+            </div>
+            <div class="status-row">
+              <div class="capability-icon apps"><i data-lucide="rocket"></i></div>
+              <div><h3>Deployment ID</h3><p class="mono-detail" id="deployment-id-detail">Checking .env</p></div>
+              <div class="badge" id="deployment-id-status">Checking</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="deployment-id" class="field__label">Deployment ID</label>
+            <input id="deployment-id" placeholder="AKfycb..." />
+            <p class="field__help">Create or update syncs DEPLOYMENT_ID to .env.</p>
+          </div>
+          <div class="action-bar">
+            <button class="command-button" id="deployment-list" type="button"><i data-lucide="refresh-cw"></i>List</button>
+            <button class="command-button primary" id="deployment-create" type="button"><i data-lucide="plus"></i>Create</button>
+            <button class="command-button" id="deployment-update" type="button"><i data-lucide="upload"></i>Update</button>
+            <button class="command-button" id="deployment-open" type="button"><i data-lucide="external-link"></i>Open deployed app</button>
+          </div>
+          <section class="activity" aria-labelledby="deployment-activity-title">
+            <div class="activity-heading"><h2 id="deployment-activity-title">Activity</h2><button id="deployment-clear-log" class="text-button" type="button">Clear</button></div>
+            <div class="log" id="deployment-log" role="log" aria-live="polite"></div>
+          </section>
+        </div>
+
+        <div class="content" id="firebase-view" hidden>
+          <div class="section-heading">
+            <div><div class="eyebrow">FIREBASE</div><h2>Realtime Database lifecycle</h2></div>
+            <button class="icon-button light" id="firebase-refresh" type="button" title="Refresh Firebase status" aria-label="Refresh Firebase status"><i data-lucide="refresh-cw"></i></button>
+          </div>
+          <div class="status-list">
+            <div class="status-row">
+              <div class="capability-icon firebase"><i data-lucide="database"></i></div>
+              <div><h3>Firebase</h3><p id="firebase-enabled-detail">Checking local configuration</p></div>
+              <div class="badge" id="firebase-enabled-status">Checking</div>
+            </div>
+            <div class="status-row">
+              <div class="capability-icon account"><i data-lucide="user-round"></i></div>
+              <div><h3>Firebase account</h3><p id="firebase-auth-detail">Checking authorization</p></div>
+              <div class="badge" id="firebase-auth-status">Checking</div>
+            </div>
+            <div class="status-row">
+              <div class="capability-icon firebase"><i data-lucide="database"></i></div>
+              <div><h3>Firebase project</h3><p class="mono-detail" id="firebase-project-detail">Checking project ID</p></div>
+              <div class="badge" id="firebase-project-status">Checking</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="firebase-project-id" class="field__label">Firebase Project ID <span class="required">*</span></label>
+            <input id="firebase-project-id" placeholder="my-firebase-project" />
+            <p class="field__help">Connect syncs FIREBASE_PROJECT_ID to .env and .firebaserc.</p>
+          </div>
+          <div class="action-bar">
+            <button class="command-button primary" id="firebase-enable" type="button"><i data-lucide="plus"></i>Enable Firebase</button>
+            <button class="command-button" id="firebase-login" type="button"><i data-lucide="log-in"></i>Firebase login</button>
+            <button class="command-button" id="firebase-connect" type="button"><i data-lucide="database"></i>Connect project</button>
+            <button class="command-button" id="firebase-rules-deploy" type="button"><i data-lucide="upload"></i>Deploy rules</button>
+            <button class="command-button" id="firebase-open" type="button"><i data-lucide="external-link"></i>Open console</button>
+          </div>
+          <section class="activity" aria-labelledby="firebase-activity-title">
+            <div class="activity-heading"><h2 id="firebase-activity-title">Activity</h2><button id="firebase-clear-log" class="text-button" type="button">Clear</button></div>
+            <div class="log" id="firebase-log" role="log" aria-live="polite"></div>
           </section>
         </div>
       </section>
@@ -111,6 +234,27 @@
         <div class="dialog-heading"><h2>Push local files?</h2><button class="dialog-close" type="button" data-close-dialog="push-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
         <p class="dialog-copy">Remote Apps Script content will be replaced by the local project files.</p>
         <div class="dialog-actions"><button class="secondary-button" type="button" data-close-dialog="push-dialog">Cancel</button><button class="command-button danger" type="submit"><i data-lucide="upload"></i>Push and replace</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="deployment-dialog">
+      <form id="deployment-form">
+        <div class="dialog-heading"><h2>Create deployment</h2><button class="dialog-close" type="button" data-close-dialog="deployment-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
+        <label for="deployment-description">Description</label>
+        <input id="deployment-description" maxlength="120" placeholder="Initial deployment" />
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-close-dialog="deployment-dialog">Cancel</button><button class="command-button primary" type="submit"><i data-lucide="rocket"></i>Create</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="credential-dialog">
+      <form id="credential-form">
+        <div class="dialog-heading"><h2>Register Firebase credentials</h2><button class="dialog-close" type="button" data-close-dialog="credential-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
+        <label for="credential-client-email">Service Account client email</label>
+        <input id="credential-client-email" type="email" required />
+        <label for="credential-private-key">Private key</label>
+        <textarea id="credential-private-key" class="secret-input" required></textarea>
+        <p class="field__help">The private key is sent only to the registered backend operation and is not written to .env.</p>
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-close-dialog="credential-dialog">Cancel</button><button class="command-button primary" type="submit"><i data-lucide="key-round"></i>Register</button></div>
       </form>
     </dialog>
     <script type="module" src="/src/main.ts"></script>

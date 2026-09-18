@@ -42,11 +42,13 @@ describe("Apps Script operations", () => {
       "apps.status",
     );
 
-    await expect(operation.handler({}, context())).resolves.toEqual({
+    await expect(operation.handler({}, context())).resolves.toMatchObject({
       authenticated: true,
       configured: true,
       scriptId: "script-123",
       rootDir: "dist",
+      manifestExists: false,
+      desired: true,
     });
     expect(run).toHaveBeenCalledWith(["show-authorized-user", "--json"]);
   });

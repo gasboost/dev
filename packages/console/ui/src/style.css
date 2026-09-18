@@ -9,6 +9,7 @@
 [hidden] { display: none !important; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
 button { font: inherit; }
+input, textarea { font: inherit; }
 .topbar { height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 24px; color: white; background: #15271e; border-bottom: 1px solid #294235; }
 .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; background: #e8ff6a; color: #15271e; font-weight: 800; border-radius: 6px; }
 .product-name { font-size: 14px; font-weight: 700; }
@@ -55,11 +56,33 @@ h3 { font-size: 14px; }
 .mono-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .action-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .command-button, .secondary-button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 13px; border: 1px solid #c9d3cc; border-radius: 5px; color: #26352c; background: white; cursor: pointer; font-size: 12px; font-weight: 700; }
+.button { min-height: 39px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 17px; border: 0; border-radius: 5px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.button svg { width: 15px; height: 15px; }
+.button--primary { color: #17211b; background: #e8ff6a; }
+.button--primary:hover:not(:disabled) { background: #efff91; }
+.button:disabled { opacity: .4; cursor: not-allowed; }
 .command-button svg, .secondary-button svg { width: 15px; height: 15px; }
 .command-button:hover, .secondary-button:hover { background: #edf2ee; }
 .command-button.primary { color: #17211b; border-color: #d0e54d; background: #e8ff6a; }
 .command-button.danger { color: white; border-color: #ae3737; background: #bd4141; }
 .command-button:disabled { opacity: .45; cursor: not-allowed; }
+.setup-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
+.setup-mode__button { min-height: 96px; display: flex; flex-direction: column; gap: 7px; padding: 16px; border: 1px solid #d8dfda; border-radius: 7px; color: #17211b; background: white; text-align: left; cursor: pointer; }
+.setup-mode__button:hover { background: #f8faf8; }
+.setup-mode__button--active { border-color: #adc238; background: #f8ffe5; box-shadow: 0 0 0 1px rgb(173 194 56 / 16%); }
+.setup-mode__button strong { font-size: 13px; }
+.setup-mode__button span { color: #6c7971; font-size: 11px; line-height: 1.55; }
+.panel { margin-top: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #d8dfda; border-radius: 7px; background: white; }
+.info-box { display: flex; align-items: flex-start; gap: 11px; padding: 14px; border: 1px solid #d8dfda; border-radius: 7px; background: #f7faf8; color: #5d6b62; font-size: 12px; line-height: 1.6; }
+.info-box__icon { flex: 0 0 auto; width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid #3c7c9d; border-radius: 999px; color: #3c7c9d; font-family: serif; font-size: 12px; font-weight: 700; }
+.field { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.panel .field { margin-top: 0; }
+.field__label { color: #526158; font-size: 12px; font-weight: 700; }
+.field input { width: 100%; height: 40px; padding: 0 11px; border: 1px solid #bfcac2; border-radius: 5px; color: #17211b; background: white; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.field input:focus, .secret-input:focus { outline: 2px solid #bdd43f; outline-offset: 1px; }
+.field__help { margin: 0; color: #6c7971; font-size: 11px; line-height: 1.55; }
+.required { color: #bd4141; }
+.secret-input { width: 100%; min-height: 170px; padding: 11px; resize: vertical; border: 1px solid #bfcac2; border-radius: 5px; color: #17211b; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .activity { margin-top: 30px; }
 .activity-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .text-button { border: 0; color: #446052; background: transparent; cursor: pointer; font-size: 12px; font-weight: 700; }
