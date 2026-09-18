@@ -2,6 +2,7 @@ import type { GasboostAppsScriptConfig } from "@gasboost/config";
 import type { OperationDefinition } from "@gasboost/console-runtime";
 import { z } from "zod";
 import { EnvFileRepository } from "../env/EnvFileRepository.js";
+import { openBrowser } from "../openBrowser.js";
 import { AppsScriptProjectRepository } from "./AppsScriptProjectRepository.js";
 import type { ClaspResult, ClaspRunner } from "./ClaspRunner.js";
 
@@ -46,10 +47,12 @@ export function createAppsScriptOperations({
   projectRoot,
   config,
   clasp,
+  browserOpener = openBrowser,
 }: {
   readonly projectRoot: string;
   readonly config?: GasboostAppsScriptConfig;
   readonly clasp: ClaspRunner;
+  readonly browserOpener?: (url: string) => Promise<void>;
 }): readonly AppsScriptOperation[] {
   const effectiveConfig = config ?? defaultAppsScriptConfig;
   const projectRepository = new AppsScriptProjectRepository({
@@ -128,9 +131,9 @@ export function createAppsScriptOperations({
       id: "apps.open",
       input: emptyInput,
       async handler(_input, context) {
-        await assertProjectConfigured(projectRepository);
-        const result = await clasp.run(["open-script"], context.log);
-        assertClaspSuccess("Opening Apps Script editor", result);
+        const project = await assertProjectConfigured(projectRepository);
+        context.log(`Opening Apps Script editor for ${project.scriptId}`);
+        await browserOpener(`https://script.google.com/home/projects/${encodeURIComponent(project.scriptId)}/edit`);
         return { opened: true };
       },
     },
@@ -184,7 +187,7 @@ export function createAppsScriptOperations({
         if (deploymentId === undefined || deploymentId.length === 0) {
           throw new Error("Select or create a deployment first.");
         }
-        const args = ["update-deployment", "--deploymentId", deploymentId];
+        const args = ["update-deployment", deploymentId];
         if (input.description !== undefined && input.description.length > 0) {
           args.push("--description", input.description);
         }

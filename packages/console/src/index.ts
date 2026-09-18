@@ -13,6 +13,10 @@ export {
   type ClaspRunner,
 } from "./appsScript/ClaspRunner.js";
 export {
+  createDevelopmentOperations,
+  type DevelopmentStatus,
+} from "./development/developmentOperations.js";
+export {
   createFirebaseRunner,
   type FirebaseResult,
   type FirebaseRunner,

@@ -16,6 +16,7 @@ import {
   UserRound,
   X,
 } from "lucide";
+import { installDialogControls } from "./dialogControls";
 import "./style.css";
 
 type View = "overview" | "development" | "apps-script" | "deployment" | "firebase";
@@ -49,10 +50,18 @@ type FirebaseStatus = {
   readonly firebaserc: boolean;
 };
 
+type DevelopmentStatus = {
+  readonly running: boolean;
+  readonly localUrl?: string;
+  readonly command?: readonly string[];
+  readonly log: readonly string[];
+};
+
 const sessionToken = getSessionToken();
 let projectState: ProjectState | undefined;
 let appsScriptStatus: AppsScriptStatus | undefined;
 let firebaseStatus: FirebaseStatus | undefined;
+let developmentStatus: DevelopmentStatus | undefined;
 let appsSetupMode: "new" | "existing" = "existing";
 
 createIcons({
@@ -105,6 +114,11 @@ const deploymentCreate = required<HTMLButtonElement>("deployment-create");
 const deploymentUpdate = required<HTMLButtonElement>("deployment-update");
 const deploymentOpen = required<HTMLButtonElement>("deployment-open");
 
+const developmentStart = required<HTMLButtonElement>("development-start");
+const developmentStop = required<HTMLButtonElement>("development-stop");
+const developmentRestart = required<HTMLButtonElement>("development-restart");
+const developmentOpen = required<HTMLButtonElement>("development-open");
+
 const firebaseEnable = required<HTMLButtonElement>("firebase-enable");
 const firebaseLogin = required<HTMLButtonElement>("firebase-login");
 const firebaseConnect = required<HTMLButtonElement>("firebase-connect");
@@ -121,6 +135,7 @@ required("development-clear-log").addEventListener("click", () => devLog.replace
 for (const [view, button] of Object.entries(navButtons) as [View, HTMLButtonElement][]) {
   button.addEventListener("click", () => {
     showView(view);
+    if (view === "development") void refreshDevelopmentStatus();
     if (view === "apps-script") void refreshAppsScriptStatus();
     if (view === "deployment") void refreshAppsScriptStatus();
     if (view === "firebase") void refreshFirebaseStatus();
@@ -128,6 +143,7 @@ for (const [view, button] of Object.entries(navButtons) as [View, HTMLButtonElem
 }
 
 required("apps-refresh").addEventListener("click", () => void refreshAppsScriptStatus());
+required("development-refresh").addEventListener("click", () => void refreshDevelopmentStatus());
 required("deployment-refresh").addEventListener("click", () => void refreshAppsScriptStatus());
 required("firebase-refresh").addEventListener("click", () => void refreshFirebaseStatus());
 
@@ -139,7 +155,7 @@ for (const button of document.querySelectorAll<HTMLButtonElement>("[data-setup-m
 }
 
 appsLogin.addEventListener("click", () =>
-  void runOperation("apps.login", {}, appsLog, renderAppsScriptStatus),
+  void runOperation("apps.login", {}, appsLog, renderAppsScriptStatus, [appsLogin]),
 );
 appsUserSettings.addEventListener("click", () =>
   window.open("https://script.google.com/home/usersettings", "_blank", "noopener"),
@@ -152,10 +168,10 @@ appsCreate.addEventListener("click", () => {
 });
 appsConnect.addEventListener("click", () => {
   const scriptId = required<HTMLInputElement>("script-id").value.trim();
-  void runOperation("apps.connect", { scriptId }, appsLog, renderAppsScriptStatus);
+  void runOperation("apps.connect", { scriptId }, appsLog, renderAppsScriptStatus, [appsConnect]);
 });
 appsOpen.addEventListener("click", () =>
-  void runOperation("apps.open", {}, appsLog, () => undefined),
+  void runOperation("apps.open", {}, appsLog, () => undefined, [appsOpen]),
 );
 appsPush.addEventListener("click", () =>
   required<HTMLDialogElement>("push-dialog").showModal(),
@@ -196,6 +212,7 @@ deploymentList.addEventListener("click", () =>
               .join(", ");
       appendLog(deploymentLog, summary, "info");
     },
+    [deploymentList],
   ),
 );
 deploymentCreate.addEventListener("click", () =>
@@ -207,6 +224,7 @@ deploymentUpdate.addEventListener("click", () =>
     { deploymentId: required<HTMLInputElement>("deployment-id").value.trim() || undefined },
     deploymentLog,
     () => void refreshAppsScriptStatus(),
+    [deploymentUpdate],
   ),
 );
 deploymentOpen.addEventListener("click", () => {
@@ -215,17 +233,17 @@ deploymentOpen.addEventListener("click", () => {
 });
 
 firebaseEnable.addEventListener("click", () =>
-  void runOperation("firebase.enable", {}, firebaseLog, renderFirebaseStatus),
+  void runOperation("firebase.enable", {}, firebaseLog, renderFirebaseStatus, [firebaseEnable]),
 );
 firebaseLogin.addEventListener("click", () =>
-  void runOperation("firebase.login", {}, firebaseLog, renderFirebaseStatus),
+  void runOperation("firebase.login", {}, firebaseLog, renderFirebaseStatus, [firebaseLogin]),
 );
 firebaseConnect.addEventListener("click", () => {
   const projectId = required<HTMLInputElement>("firebase-project-id").value.trim();
-  void runOperation("firebase.connect", { projectId }, firebaseLog, renderFirebaseStatus);
+  void runOperation("firebase.connect", { projectId }, firebaseLog, renderFirebaseStatus, [firebaseConnect]);
 });
 firebaseRulesDeploy.addEventListener("click", () =>
-  void runOperation("firebase.rules.deploy", {}, firebaseLog, () => void refreshFirebaseStatus()),
+  void runOperation("firebase.rules.deploy", {}, firebaseLog, () => void refreshFirebaseStatus(), [firebaseRulesDeploy]),
 );
 firebaseOpen.addEventListener("click", () =>
   window.open("https://console.firebase.google.com/", "_blank", "noopener"),
@@ -236,13 +254,14 @@ required<HTMLFormElement>("create-form").addEventListener("submit", (event) => {
   const dialog = required<HTMLDialogElement>("create-dialog");
   const title = required<HTMLInputElement>("script-title").value;
   dialog.close();
-  void runOperation("apps.create", { title }, appsLog, renderAppsScriptStatus);
+  void runOperation("apps.create", { title }, appsLog, renderAppsScriptStatus, [appsCreate]);
 });
 required<HTMLFormElement>("push-form").addEventListener("submit", (event) => {
   event.preventDefault();
   required<HTMLDialogElement>("push-dialog").close();
   void runOperation("apps.push", { confirmed: true }, appsLog, () =>
     void refreshAppsScriptStatus(),
+    [appsPush],
   );
 });
 required<HTMLFormElement>("deployment-form").addEventListener("submit", (event) => {
@@ -253,20 +272,29 @@ required<HTMLFormElement>("deployment-form").addEventListener("submit", (event) 
     { description: required<HTMLInputElement>("deployment-description").value.trim() || undefined },
     deploymentLog,
     () => void refreshAppsScriptStatus(),
+    [deploymentCreate],
   );
 });
-for (const closeButton of document.querySelectorAll<HTMLElement>("[data-close-dialog]")) {
-  closeButton.addEventListener("click", () => {
-    const dialogId = closeButton.dataset.closeDialog;
-    if (dialogId !== undefined) required<HTMLDialogElement>(dialogId).close();
-  });
-}
+installDialogControls();
+
+developmentStart.addEventListener("click", () =>
+  void runOperation("development.start", {}, devLog, renderDevelopmentStatus, [developmentStart, developmentRestart]),
+);
+developmentStop.addEventListener("click", () =>
+  void runOperation("development.stop", {}, devLog, renderDevelopmentStatus, [developmentStop, developmentRestart]),
+);
+developmentRestart.addEventListener("click", () =>
+  void runOperation("development.restart", {}, devLog, renderDevelopmentStatus, [developmentStart, developmentStop, developmentRestart]),
+);
+developmentOpen.addEventListener("click", () =>
+  void runOperation("development.open", {}, devLog, renderDevelopmentStatus, [developmentOpen]),
+);
 
 void refreshAll();
 
 async function refreshAll(): Promise<void> {
   await inspectProject();
-  await Promise.all([refreshAppsScriptStatus(), refreshFirebaseStatus()]);
+  await Promise.all([refreshDevelopmentStatus(), refreshAppsScriptStatus(), refreshFirebaseStatus()]);
 }
 
 async function inspectProject(): Promise<void> {
@@ -293,11 +321,15 @@ async function inspectProject(): Promise<void> {
 }
 
 async function refreshAppsScriptStatus(): Promise<void> {
-  await runOperation("apps.status", {}, appsLog, renderAppsScriptStatus);
+  await runOperation("apps.status", {}, appsLog, renderAppsScriptStatus, [required<HTMLButtonElement>("apps-refresh")]);
 }
 
 async function refreshFirebaseStatus(): Promise<void> {
-  await runOperation("firebase.status", {}, firebaseLog, renderFirebaseStatus);
+  await runOperation("firebase.status", {}, firebaseLog, renderFirebaseStatus, [required<HTMLButtonElement>("firebase-refresh")]);
+}
+
+async function refreshDevelopmentStatus(): Promise<void> {
+  await runOperation("development.status", {}, devLog, renderDevelopmentStatus, [required<HTMLButtonElement>("development-refresh")]);
 }
 
 async function runOperation<TInput, TResult>(
@@ -305,8 +337,9 @@ async function runOperation<TInput, TResult>(
   input: TInput,
   log: HTMLElement,
   onResult: (result: TResult) => void,
+  controls: readonly HTMLButtonElement[] = [],
 ): Promise<void> {
-  setActionsDisabled(true);
+  setControlsDisabled(controls, true);
   setRuntimeStatus("running", "Working");
 
   try {
@@ -316,7 +349,8 @@ async function runOperation<TInput, TResult>(
     setRuntimeStatus("error", "Error");
     appendError(log, error);
   } finally {
-    setActionsDisabled(false);
+    setControlsDisabled(controls, false);
+    updateActions();
   }
 }
 
@@ -453,6 +487,18 @@ function renderFirebaseStatus(status: FirebaseStatus): void {
   updateActions();
 }
 
+function renderDevelopmentStatus(status: DevelopmentStatus): void {
+  developmentStatus = status;
+  setStatusBadge("development-state-status", status.running, "Running", "Stopped");
+  required("development-state-detail").textContent =
+    status.command === undefined ? "No dev process launched by console" : status.command.join(" ");
+  setStatusBadge("development-url-status", status.localUrl !== undefined, "Available", "Pending");
+  required("development-url-detail").textContent = status.localUrl ?? "Start the local application to detect a URL";
+  devLog.replaceChildren();
+  for (const line of status.log) appendLog(devLog, line, "info");
+  updateActions();
+}
+
 function renderAppsSetupMode(): void {
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-setup-mode]")) {
     button.classList.toggle("setup-mode__button--active", button.dataset.setupMode === appsSetupMode);
@@ -468,14 +514,8 @@ function showView(view: View): void {
   }
 }
 
-function setActionsDisabled(busy: boolean): void {
-  if (busy) {
-    for (const button of document.querySelectorAll<HTMLButtonElement>("button")) {
-      if (!button.classList.contains("nav-item")) button.disabled = true;
-    }
-  } else {
-    updateActions();
-  }
+function setControlsDisabled(controls: readonly HTMLButtonElement[], disabled: boolean): void {
+  for (const control of controls) control.disabled = disabled;
 }
 
 function updateActions(): void {
@@ -493,6 +533,10 @@ function updateActions(): void {
   deploymentCreate.disabled = !authenticated || !configured;
   deploymentUpdate.disabled = !authenticated || !configured;
   deploymentOpen.disabled = (appsScriptStatus?.deploymentId ?? required<HTMLInputElement>("deployment-id").value).length === 0;
+  developmentStart.disabled = developmentStatus?.running === true;
+  developmentStop.disabled = developmentStatus?.running !== true;
+  developmentRestart.disabled = developmentStatus?.running !== true;
+  developmentOpen.disabled = developmentStatus?.running !== true || developmentStatus.localUrl === undefined;
   firebaseLogin.disabled = firebaseStatus?.authenticated === true;
   firebaseEnable.disabled = firebaseStatus?.enabled === true;
   firebaseConnect.disabled = false;

@@ -55,7 +55,7 @@ try {
   const uiResponse = await fetch(url);
   const html = await uiResponse.text();
 
-  if (!uiResponse.ok || !html.includes("Gasboost Console")) {
+  if (!uiResponse.ok || !html.includes("gasboost console")) {
     throw new Error("Packed Console UI could not be loaded");
   }
 
