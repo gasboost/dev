@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
+import { loadGasboostConfig, ModuleLoader } from "@gasboost/config";
 import { Cli } from "./cli/Cli.js";
 import { CommandRouter } from "./cli/CommandRouter.js";
-import { GasboostConfigLoader } from "./config/GasboostConfigLoader.js";
-import { ModuleLoader } from "./module/ModuleLoader.js";
 import { RtdbRulesCommand } from "./rtdb/RtdbRulesCommand.js";
 import { RtdbRulesWriter } from "./rtdb/RtdbRulesWriter.js";
 
@@ -11,15 +10,10 @@ const projectRoot = process.cwd();
 
 const moduleLoader = new ModuleLoader(projectRoot);
 
-const configLoader = new GasboostConfigLoader({
-  projectRoot,
-  moduleLoader,
-});
-
 const writer = new RtdbRulesWriter(projectRoot);
 
 const rtdbRulesCommand = new RtdbRulesCommand({
-  configLoader,
+  loadConfig: () => loadGasboostConfig({ projectRoot }),
   moduleLoader,
   writer,
 });

@@ -1,8 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { GasboostConfigLoader } from "../src/config/GasboostConfigLoader.js";
-import { ModuleLoader } from "../src/module/ModuleLoader.js";
+import { loadGasboostConfig, ModuleLoader } from "@gasboost/config";
 import { RtdbRulesCommand } from "../src/rtdb/RtdbRulesCommand.js";
 import { RtdbRulesWriter } from "../src/rtdb/RtdbRulesWriter.js";
 
@@ -188,9 +187,11 @@ export const rtdb =
       join(root, "gasboost.config.ts"),
       `
 export default {
-  rtdb: {
-    source: "./src/rtdb.ts",
-    out: "./database.rules.json",
+  firebase: {
+    realtimeDatabase: {
+      source: "./src/rtdb.ts",
+      out: "./database.rules.json",
+    },
   },
 };
 `.trimStart(),
@@ -200,10 +201,7 @@ export default {
     const moduleLoader = new ModuleLoader(root);
 
     const command = new RtdbRulesCommand({
-      configLoader: new GasboostConfigLoader({
-        projectRoot: root,
-        moduleLoader,
-      }),
+      loadConfig: () => loadGasboostConfig({ projectRoot: root }),
       moduleLoader,
       writer: new RtdbRulesWriter(root),
     });

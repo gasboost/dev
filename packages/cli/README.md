@@ -18,12 +18,17 @@ pnpm add -D @gasboost/cli
 import { defineGasboostConfig } from "@gasboost/cli";
 
 export default defineGasboostConfig({
-  rtdb: {
-    source: "./src/backend/lib/rtdb.ts",
-    out: "./database.rules.json",
+  firebase: {
+    realtimeDatabase: {
+      source: "./src/backend/lib/rtdb.ts",
+      out: "./database.rules.json",
+    },
   },
 });
 ```
+
+従来の `rtdb: { source, out }` 形式も互換性のため読み込めますが、
+新しい設定では `firebase.realtimeDatabase` を使用してください。
 
 ### RTDB definition
 
@@ -104,10 +109,10 @@ Gasboost CLI を利用するためだけに import path を書き換える必要
 gasboost.config.ts
         │
         ▼
-GasboostConfigLoader
+@gasboost/config
         │
         ▼
-ModuleLoader
+loadGasboostConfig
       jiti
         │
         ▼
