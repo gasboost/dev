@@ -110,7 +110,6 @@
             <button class="command-button" id="apps-open" type="button"><i data-lucide="external-link"></i>Open editor</button>
             <button class="command-button primary" id="apps-push" type="button"><i data-lucide="upload"></i>Push</button>
             <button class="command-button" id="apps-pull" type="button"><i data-lucide="refresh-cw"></i>Pull</button>
-            <button class="command-button" id="credential-register" type="button"><i data-lucide="key-round"></i>Register credentials</button>
           </div>
 
           <div class="setup-mode">
@@ -136,6 +135,17 @@
           <div class="panel" id="apps-create-panel" hidden>
             <div class="info-box"><span class="info-box__icon">i</span><div>This runs the fixed Apps Script project creation operation and refreshes state afterward.</div></div>
             <button class="button button--primary" id="apps-create" type="button"><i data-lucide="plus"></i>Create project</button>
+          </div>
+
+          <div class="panel">
+            <div>
+              <h3>Firebase credentials</h3>
+              <p class="field__help">Create a service account key in Firebase, then add its values to Script Properties in Apps Script. Credentials stay in those provider interfaces and never pass through Console.</p>
+            </div>
+            <div class="action-bar">
+              <button class="command-button" id="credential-service-account" type="button"><i data-lucide="key-round"></i>1. Open Service Accounts</button>
+              <button class="command-button" id="credential-script-properties" type="button"><i data-lucide="external-link"></i>2. Open Script Properties</button>
+            </div>
           </div>
 
           <section class="activity" aria-labelledby="apps-activity-title">
@@ -246,17 +256,6 @@
       </form>
     </dialog>
 
-    <dialog id="credential-dialog">
-      <form id="credential-form">
-        <div class="dialog-heading"><h2>Register Firebase credentials</h2><button class="dialog-close" type="button" data-close-dialog="credential-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
-        <label for="credential-client-email">Service Account client email</label>
-        <input id="credential-client-email" type="email" required />
-        <label for="credential-private-key">Private key</label>
-        <textarea id="credential-private-key" class="secret-input" required></textarea>
-        <p class="field__help">The private key is sent only to the registered backend operation and is not written to .env.</p>
-        <div class="dialog-actions"><button class="secondary-button" type="button" data-close-dialog="credential-dialog">Cancel</button><button class="command-button primary" type="submit"><i data-lucide="key-round"></i>Register</button></div>
-      </form>
-    </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

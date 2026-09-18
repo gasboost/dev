@@ -97,7 +97,8 @@ const appsUserSettings = required<HTMLButtonElement>("apps-user-settings");
 const appsOpen = required<HTMLButtonElement>("apps-open");
 const appsPush = required<HTMLButtonElement>("apps-push");
 const appsPull = required<HTMLButtonElement>("apps-pull");
-const credentialRegister = required<HTMLButtonElement>("credential-register");
+const credentialServiceAccount = required<HTMLButtonElement>("credential-service-account");
+const credentialScriptProperties = required<HTMLButtonElement>("credential-script-properties");
 
 const deploymentList = required<HTMLButtonElement>("deployment-list");
 const deploymentCreate = required<HTMLButtonElement>("deployment-create");
@@ -162,9 +163,24 @@ appsPush.addEventListener("click", () =>
 appsPull.addEventListener("click", () =>
   appendLog(appsLog, "Pull is reserved for a follow-up operation.", "info"),
 );
-credentialRegister.addEventListener("click", () =>
-  required<HTMLDialogElement>("credential-dialog").showModal(),
-);
+credentialServiceAccount.addEventListener("click", () => {
+  const projectId = firebaseStatus?.projectId;
+  if (projectId === undefined) return;
+  window.open(
+    `https://console.firebase.google.com/project/${encodeURIComponent(projectId)}/settings/serviceaccounts/adminsdk`,
+    "_blank",
+    "noopener",
+  );
+});
+credentialScriptProperties.addEventListener("click", () => {
+  const scriptId = appsScriptStatus?.scriptId;
+  if (scriptId === undefined) return;
+  window.open(
+    `https://script.google.com/home/projects/${encodeURIComponent(scriptId)}/settings`,
+    "_blank",
+    "noopener",
+  );
+});
 
 deploymentList.addEventListener("click", () =>
   void runOperation(
@@ -239,20 +255,6 @@ required<HTMLFormElement>("deployment-form").addEventListener("submit", (event) 
     () => void refreshAppsScriptStatus(),
   );
 });
-required<HTMLFormElement>("credential-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  required<HTMLDialogElement>("credential-dialog").close();
-  void runOperation(
-    "apps.credentials.register",
-    {
-      clientEmail: required<HTMLInputElement>("credential-client-email").value.trim(),
-      privateKey: required<HTMLTextAreaElement>("credential-private-key").value,
-    },
-    appsLog,
-    () => appendLog(appsLog, "Script Properties updated", "progress"),
-  );
-});
-
 for (const closeButton of document.querySelectorAll<HTMLElement>("[data-close-dialog]")) {
   closeButton.addEventListener("click", () => {
     const dialogId = closeButton.dataset.closeDialog;
@@ -485,7 +487,8 @@ function updateActions(): void {
   appsOpen.disabled = !authenticated || !configured;
   appsPush.disabled = !authenticated || !configured;
   appsPull.disabled = !authenticated || !configured;
-  credentialRegister.disabled = !configured || firebaseStatus?.configured !== true;
+  credentialServiceAccount.disabled = firebaseStatus?.projectId === undefined;
+  credentialScriptProperties.disabled = appsScriptStatus?.scriptId === undefined;
   deploymentList.disabled = !authenticated || !configured;
   deploymentCreate.disabled = !authenticated || !configured;
   deploymentUpdate.disabled = !authenticated || !configured;

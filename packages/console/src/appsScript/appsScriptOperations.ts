@@ -40,13 +40,6 @@ const updateDeploymentInput = z
     description: z.string().trim().max(120).optional(),
   })
   .strict();
-const credentialsInput = z
-  .object({
-    clientEmail: z.string().trim().email(),
-    privateKey: z.string().min(20),
-  })
-  .strict();
-
 const defaultAppsScriptConfig: GasboostAppsScriptConfig = { type: "webapp" };
 
 export function createAppsScriptOperations({
@@ -201,38 +194,6 @@ export function createAppsScriptOperations({
         return { deploymentId };
       },
     },
-    {
-      id: "apps.credentials.register",
-      input: credentialsInput,
-      async handler(input, context) {
-        const project = await assertProjectConfigured(projectRepository);
-        const env = await envRepository.read();
-        if (env.FIREBASE_PROJECT_ID === undefined) {
-          throw new Error("Connect a Firebase project before registering credentials.");
-        }
-
-        context.progress({ message: "Registering Script Properties", percentage: 30 });
-        const result = await clasp.run(
-          [
-            "run",
-            "gasboostSetScriptProperties",
-            "--params",
-            JSON.stringify([
-              {
-                GAS_SCRIPT_ID: project.scriptId,
-                FIREBASE_PROJECT_ID: env.FIREBASE_PROJECT_ID,
-                FIREBASE_CLIENT_EMAIL: input.clientEmail,
-                FIREBASE_PRIVATE_KEY: input.privateKey,
-              },
-            ]),
-          ],
-          redactSecret(input.privateKey, context.log),
-        );
-        assertClaspSuccess("Registering Script Properties", result);
-        context.progress({ message: "Credentials registered", percentage: 100 });
-        return { registered: true };
-      },
-    },
   ];
 }
 
@@ -324,11 +285,4 @@ function parseDeployments(stdout: string): {
 
 function extractDeploymentId(stdout: string): string | undefined {
   return /(?:Deployment ID|deploymentId)[:\s]+([A-Za-z0-9_-]+)/.exec(stdout)?.[1];
-}
-
-function redactSecret(
-  secret: string,
-  log: (message: string) => void,
-): (message: string) => void {
-  return (message) => log(message.split(secret).join("[redacted]"));
 }

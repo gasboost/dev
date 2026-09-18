@@ -25,6 +25,17 @@ describe("Apps Script operations", () => {
     return projectRoot;
   }
 
+  it("credentialを受け取るoperationを公開しない", async () => {
+    const projectRoot = await createProject();
+    const operations = createAppsScriptOperations({
+      projectRoot,
+      config: { type: "webapp" },
+      clasp: { run: vi.fn() } as ClaspRunner,
+    });
+
+    expect(operations.map(({ id }) => id)).not.toContain("apps.credentials.register");
+  });
+
   it("authorizationと.clasp.jsonからstatusを返す", async () => {
     const projectRoot = await createProject();
     await writeFile(
