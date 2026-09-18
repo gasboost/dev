@@ -141,6 +141,10 @@ jobs:
         run: pnpm publish --access public --no-git-checks
 
       # @gasboost/console is consumed by @gasboost/cli.
+      - name: Build console
+        if: ${{ needs.check-versions.outputs.publish-console == 'true' || needs.check-versions.outputs.publish-cli == 'true' }}
+        run: pnpm --filter @gasboost/console build
+
       - name: Typecheck console
         if: ${{ needs.check-versions.outputs.publish-console == 'true' }}
         run: pnpm --filter @gasboost/console typecheck
@@ -148,10 +152,6 @@ jobs:
       - name: Test console
         if: ${{ needs.check-versions.outputs.publish-console == 'true' }}
         run: pnpm --filter @gasboost/console test
-
-      - name: Build console
-        if: ${{ needs.check-versions.outputs.publish-console == 'true' || needs.check-versions.outputs.publish-cli == 'true' }}
-        run: pnpm --filter @gasboost/console build
 
       - name: Verify console package contents
         if: ${{ needs.check-versions.outputs.publish-console == 'true' }}
@@ -163,6 +163,10 @@ jobs:
         working-directory: packages/console
         run: pnpm publish --access public --no-git-checks
 
+      - name: Build cli
+        if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
+        run: pnpm --filter @gasboost/cli build
+
       - name: Typecheck cli
         if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
         run: pnpm --filter @gasboost/cli typecheck
@@ -170,10 +174,6 @@ jobs:
       - name: Test cli
         if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
         run: pnpm --filter @gasboost/cli test
-
-      - name: Build cli
-        if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
-        run: pnpm --filter @gasboost/cli build
 
       - name: Verify cli package contents
         if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
