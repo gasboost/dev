@@ -12,3 +12,12 @@ export {
   type ClaspResult,
   type ClaspRunner,
 } from "./appsScript/ClaspRunner.js";
+export {
+  createFirebaseRunner,
+  type FirebaseResult,
+  type FirebaseRunner,
+} from "./firebase/FirebaseRunner.js";
+export {
+  createFirebaseOperations,
+  type FirebaseStatus,
+} from "./firebase/firebaseOperations.js";
