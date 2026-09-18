@@ -1,0 +1,35 @@
+{
+  "name": "@gasboost/console-runtime",
+  "version": "0.1.0",
+  "description": "Local application runtime for project lifecycle consoles",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "pack:check": "pnpm pack"
+  },
+  "engines": { "node": ">=24" },
+  "dependencies": { "zod": "^4.1.12" },
+  "devDependencies": {
+    "@types/node": "^24.13.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  },
+  "keywords": ["gasboost", "developer-console", "local-runtime"],
+  "license": "MIT",
+  "packageManager": "pnpm@10.18.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gasboost/dev.git",
+    "directory": "packages/console-runtime"
+  },
+  "homepage": "https://github.com/gasboost/dev"
+}

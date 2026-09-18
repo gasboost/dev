@@ -6,8 +6,9 @@ describe("CommandRouter", () => {
     const execute = vi.fn(async () => "/project/database.rules.json");
 
     const router = new CommandRouter({
-      execute,
-    } as never);
+      consoleOpenCommand: { execute: vi.fn() } as never,
+      rtdbRulesCommand: { execute } as never,
+    });
 
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
@@ -26,8 +27,9 @@ describe("CommandRouter", () => {
     const execute = vi.fn();
 
     const router = new CommandRouter({
-      execute,
-    } as never);
+      consoleOpenCommand: { execute: vi.fn() } as never,
+      rtdbRulesCommand: { execute } as never,
+    });
 
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
@@ -36,7 +38,11 @@ describe("CommandRouter", () => {
     expect(execute).not.toHaveBeenCalled();
 
     expect(log).toHaveBeenCalledWith(
-      ["Usage:", "  gasboost rtdb rules"].join("\n"),
+      [
+        "Usage:",
+        "  gasboost console open [--no-browser]",
+        "  gasboost rtdb rules",
+      ].join("\n"),
     );
 
     log.mockRestore();
@@ -46,11 +52,43 @@ describe("CommandRouter", () => {
     const execute = vi.fn();
 
     const router = new CommandRouter({
-      execute,
-    } as never);
+      consoleOpenCommand: { execute: vi.fn() } as never,
+      rtdbRulesCommand: { execute } as never,
+    });
 
     await expect(router.route(["unknown"])).rejects.toThrow(
       "Unknown command: unknown",
     );
+  });
+
+  it("console open commandを実行する", async () => {
+    const execute = vi.fn(async () => "http://127.0.0.1:3000");
+    const router = new CommandRouter({
+      consoleOpenCommand: { execute } as never,
+      rtdbRulesCommand: { execute: vi.fn() } as never,
+    });
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await router.route(["console", "open"]);
+
+    expect(execute).toHaveBeenCalledWith({ openBrowser: true });
+    expect(log).toHaveBeenCalledWith(
+      "Gasboost Console opened: http://127.0.0.1:3000",
+    );
+    log.mockRestore();
+  });
+
+  it("--no-browserではbrowserを開かずにconsoleを起動する", async () => {
+    const execute = vi.fn(async () => "http://127.0.0.1:3000");
+    const router = new CommandRouter({
+      consoleOpenCommand: { execute } as never,
+      rtdbRulesCommand: { execute: vi.fn() } as never,
+    });
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await router.route(["console", "open", "--no-browser"]);
+
+    expect(execute).toHaveBeenCalledWith({ openBrowser: false });
+    log.mockRestore();
   });
 });

@@ -6,6 +6,28 @@ Gasboost エコシステム共通の開発CLIです。
 pnpm add -D @gasboost/cli
 ```
 
+## Project Console
+
+プロジェクトの `package.json` に Console script を追加します。
+
+```json
+{
+  "scripts": {
+    "console": "gasboost console open"
+  }
+}
+```
+
+次のコマンドでローカルConsoleを開きます。
+
+```bash
+pnpm console
+```
+
+自動でBrowserを開かずに起動する場合は `gasboost console open --no-browser` を使用できます。
+
+ConsoleのBrowser UIから実行できるのは、登録済みoperationと各operationのschemaを満たすstructured inputだけです。
+
 ## RTDB Security Rules
 
 `@gasboost/realtime-firebase` で定義した Firebase Realtime Database の Security Rules を生成できます。
@@ -55,6 +77,7 @@ CLI はこの module を実行し、export された `rtdb` の `rules()` を呼
 ### Generate
 
 ```bash
+gasboost console open [--no-browser]
 gasboost rtdb rules
 ```
 

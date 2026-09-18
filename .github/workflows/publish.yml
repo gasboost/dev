@@ -37,21 +37,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build packages
+        run: pnpm -r build
+
       - name: Typecheck packages
         run: pnpm -r typecheck
 
       - name: Test packages
         run: pnpm -r test
 
-      - name: Build packages
-        run: pnpm -r build
-
       - name: Verify package contents
         run: pnpm -r pack:check
 
       - name: Publish new package versions
         run: |
-          for PACKAGE_DIR in packages/config packages/cli; do
+          for PACKAGE_DIR in packages/config packages/console-runtime packages/console packages/cli; do
             NAME=$(node -p "require('./${PACKAGE_DIR}/package.json').name")
             VERSION=$(node -p "require('./${PACKAGE_DIR}/package.json').version")
 
