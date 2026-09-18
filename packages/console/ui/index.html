@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="gasboost-session" content="__GASBOOST_SESSION_TOKEN__" />
+    <title>Gasboost Console</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-mark">G</div>
+      <div>
+        <div class="product-name">Gasboost Console</div>
+        <div class="project-path" id="project-path">Loading project...</div>
+      </div>
+      <button class="icon-button" id="refresh" type="button" title="Refresh project state" aria-label="Refresh project state">
+        <i data-lucide="refresh-cw"></i>
+      </button>
+    </header>
+
+    <main>
+      <section class="status-band" aria-labelledby="project-title">
+        <div>
+          <div class="eyebrow">PROJECT</div>
+          <h1 id="project-title">Loading...</h1>
+        </div>
+        <div class="runtime-status" id="runtime-status"><span></span> Connecting</div>
+      </section>
+
+      <section class="workspace" aria-label="Project lifecycle">
+        <nav class="sidebar" aria-label="Console sections">
+          <button class="nav-item active" type="button"><i data-lucide="layout-dashboard"></i>Overview</button>
+          <button class="nav-item" type="button" disabled><i data-lucide="code-2"></i>Development</button>
+          <button class="nav-item" type="button" disabled><i data-lucide="file-code-2"></i>Apps Script</button>
+          <button class="nav-item" type="button" disabled><i data-lucide="rocket"></i>Deployment</button>
+          <button class="nav-item" type="button" disabled><i data-lucide="database"></i>Firebase</button>
+        </nav>
+
+        <div class="content">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">OVERVIEW</div>
+              <h2>Project capabilities</h2>
+            </div>
+          </div>
+
+          <div class="capability-list">
+            <article class="capability-row">
+              <div class="capability-icon apps"><i data-lucide="file-code-2"></i></div>
+              <div><h3>Apps Script</h3><p>Web application lifecycle</p></div>
+              <div class="badge" id="apps-script-status">Checking</div>
+            </article>
+            <article class="capability-row">
+              <div class="capability-icon firebase"><i data-lucide="database"></i></div>
+              <div><h3>Firebase Realtime Database</h3><p>Rules generation and deployment</p></div>
+              <div class="badge" id="firebase-status">Checking</div>
+            </article>
+          </div>
+
+          <section class="activity" aria-labelledby="activity-title">
+            <div class="activity-heading"><h2 id="activity-title">Activity</h2><button id="clear-log" class="text-button" type="button">Clear</button></div>
+            <div class="log" id="log" role="log" aria-live="polite"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

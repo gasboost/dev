@@ -20,6 +20,9 @@ importers:
       '@gasboost/config':
         specifier: workspace:*
         version: link:../config
+      '@gasboost/console':
+        specifier: workspace:*
+        version: link:../console
     devDependencies:
       '@gasboost/realtime-firebase':
         specifier: ^0.1.0
@@ -39,6 +42,50 @@ importers:
       jiti:
         specifier: ^2.7.0
         version: 2.7.0
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.4
+        version: 24.13.4
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.0(@types/node@24.13.4)(vite@8.3.0(@types/node@24.13.4)(jiti@2.7.0))
+
+  packages/console:
+    dependencies:
+      '@gasboost/config':
+        specifier: workspace:*
+        version: link:../config
+      '@gasboost/console-runtime':
+        specifier: workspace:*
+        version: link:../console-runtime
+      lucide:
+        specifier: ^0.544.0
+        version: 0.544.0
+      zod:
+        specifier: ^4.1.12
+        version: 4.6.2
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.4
+        version: 24.13.4
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vite:
+        specifier: ^8.0.0
+        version: 8.3.0(@types/node@24.13.4)(jiti@2.7.0)
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.0(@types/node@24.13.4)(vite@8.3.0(@types/node@24.13.4)(jiti@2.7.0))
+
+  packages/console-runtime:
+    dependencies:
+      zod:
+        specifier: ^4.1.12
+        version: 4.6.2
     devDependencies:
       '@types/node':
         specifier: ^24.13.4
@@ -454,6 +501,9 @@ packages:
   lightningcss@1.33.0:
     resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
     engines: {node: '>= 12.0.0'}
+
+  lucide@0.544.0:
+    resolution: {integrity: sha512-U5ORwr5z9Sx7bNTDFaW55RbjVdQEnAcT3vws9uz3vRT1G4XXJUDAhRZdxhFoIyHEvjmTkzzlEhjSLYM5n4mb5w==}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -931,6 +981,8 @@ snapshots:
       lightningcss-linux-x64-musl: 1.33.0
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
+
+  lucide@0.544.0: {}
 
   magic-string@0.30.21:
     dependencies:

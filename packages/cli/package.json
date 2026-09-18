@@ -1,6 +1,6 @@
 {
   "name": "@gasboost/cli",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Developer tooling for the Gasboost ecosystem",
   "type": "module",
   "bin": {
@@ -28,7 +28,8 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@gasboost/config": "workspace:*"
+    "@gasboost/config": "workspace:*",
+    "@gasboost/console": "workspace:*"
   },
   "devDependencies": {
     "@gasboost/realtime-firebase": "^0.1.0",

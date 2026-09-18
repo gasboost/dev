@@ -41,6 +41,9 @@ jobs:
       - name: Test E2E cli
         run: pnpm --filter @gasboost/cli test:e2e
 
+      - name: Test E2E console
+        run: pnpm --filter @gasboost/console test:e2e
+
       - name: Pack packages
         run: pnpm -r pack:check
 

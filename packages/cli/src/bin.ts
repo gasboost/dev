@@ -3,6 +3,7 @@
 import { loadGasboostConfig, ModuleLoader } from "@gasboost/config";
 import { Cli } from "./cli/Cli.js";
 import { CommandRouter } from "./cli/CommandRouter.js";
+import { ConsoleOpenCommand } from "./console/ConsoleOpenCommand.js";
 import { RtdbRulesCommand } from "./rtdb/RtdbRulesCommand.js";
 import { RtdbRulesWriter } from "./rtdb/RtdbRulesWriter.js";
 
@@ -18,7 +19,10 @@ const rtdbRulesCommand = new RtdbRulesCommand({
   writer,
 });
 
-const commandRouter = new CommandRouter(rtdbRulesCommand);
+const commandRouter = new CommandRouter({
+  consoleOpenCommand: new ConsoleOpenCommand(projectRoot),
+  rtdbRulesCommand,
+});
 
 const cli = new Cli(commandRouter);
 
