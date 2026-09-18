@@ -6,7 +6,10 @@ Gasboost project definitions and their loader.
 import { defineGasboostConfig } from "@gasboost/config";
 
 export default defineGasboostConfig({
-  appsScript: { type: "webapp" },
+  appsScript: {
+    type: "webapp",
+    rootDir: "./dist",
+  },
   firebase: {
     realtimeDatabase: {
       source: "./src/server/lib/rtdb.ts",

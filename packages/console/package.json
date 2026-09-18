@@ -1,6 +1,6 @@
 {
   "name": "@gasboost/console",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Gasboost project lifecycle console",
   "type": "module",
   "exports": {
@@ -21,6 +21,7 @@
   "dependencies": {
     "@gasboost/config": "workspace:*",
     "@gasboost/console-runtime": "workspace:*",
+    "@google/clasp": "^3.4.1",
     "lucide": "^0.544.0",
     "zod": "^4.1.12"
   },
