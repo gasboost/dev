@@ -188,6 +188,7 @@ class DevelopmentProcessManager {
 
     this.child = undefined;
     this.localUrl = undefined;
+    this.notifyStatusWaiters();
     let exited = false;
     child.once("exit", () => {
       exited = true;

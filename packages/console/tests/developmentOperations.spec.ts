@@ -122,6 +122,41 @@ describe("Development operations", () => {
     }
   });
 
+  it("URL待機中にstopした場合はtimeoutを待たずstart resultを返す", async () => {
+    const projectRoot = await createProject('{"scripts":{"dev":"node server.mjs"}}');
+    await writeFile(
+      join(projectRoot, "server.mjs"),
+      'setInterval(() => {}, 1000);\n',
+      "utf8",
+    );
+    const { operations, cleanup } = createDevelopmentOperations({
+      projectRoot,
+      urlDetectionTimeoutMs: 5000,
+    });
+    const start = operations.find(({ id }) => id === "development.start");
+    const stop = operations.find(({ id }) => id === "development.stop");
+    const status = operations.find(({ id }) => id === "development.status");
+
+    try {
+      const startResult = start?.handler({}, context());
+      await vi.waitFor(async () => {
+        expect(await status?.handler({}, context())).toMatchObject({ running: true });
+      });
+
+      await stop?.handler({}, context());
+      await expect(
+        Promise.race([
+          startResult,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("start did not resolve after stop")), 500),
+          ),
+        ]),
+      ).resolves.toMatchObject({ running: false });
+    } finally {
+      await cleanup();
+    }
+  });
+
   it("colorized outputからcleanなURLを検出してopenに渡す", async () => {
     const projectRoot = await createProject('{"scripts":{"dev":"node server.mjs"}}');
     await writeFile(
