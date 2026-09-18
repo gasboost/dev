@@ -22,7 +22,13 @@ describe("Gasboost Console E2E", () => {
       'export default { appsScript: { type: "webapp" } };\n',
       "utf8",
     );
-    const runtime = await startGasboostConsole({ projectRoot, openBrowser: false });
+    const runtime = await startGasboostConsole({
+      projectRoot,
+      openBrowser: false,
+      clasp: {
+        run: async () => ({ exitCode: 0, stdout: "{}", stderr: "" }),
+      },
+    });
     close = runtime.close;
 
     const uiResponse = await fetch(runtime.url);
@@ -48,5 +54,19 @@ describe("Gasboost Console E2E", () => {
     expect(operationResponse.status).toBe(200);
     expect(events).toContain('"appsScript":true');
     expect(events).toContain("event: result");
+
+    const statusResponse = await fetch(`${runtime.url}/api/operations/apps.status`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: runtime.url,
+        "X-Gasboost-Session": token ?? "",
+      },
+      body: "{}",
+    });
+    const statusEvents = await statusResponse.text();
+    expect(statusResponse.status).toBe(200);
+    expect(statusEvents).toContain('"authenticated":true');
+    expect(statusEvents).toContain('"configured":false');
   });
 });

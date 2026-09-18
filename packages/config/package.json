@@ -1,6 +1,6 @@
 {
   "name": "@gasboost/config",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Project definition and configuration loading for Gasboost",
   "type": "module",
   "exports": {

@@ -29,14 +29,14 @@
 
       <section class="workspace" aria-label="Project lifecycle">
         <nav class="sidebar" aria-label="Console sections">
-          <button class="nav-item active" type="button"><i data-lucide="layout-dashboard"></i>Overview</button>
+          <button class="nav-item active" id="overview-nav" type="button"><i data-lucide="layout-dashboard"></i>Overview</button>
           <button class="nav-item" type="button" disabled><i data-lucide="code-2"></i>Development</button>
-          <button class="nav-item" type="button" disabled><i data-lucide="file-code-2"></i>Apps Script</button>
+          <button class="nav-item" id="apps-script-nav" type="button" disabled><i data-lucide="file-code-2"></i>Apps Script</button>
           <button class="nav-item" type="button" disabled><i data-lucide="rocket"></i>Deployment</button>
           <button class="nav-item" type="button" disabled><i data-lucide="database"></i>Firebase</button>
         </nav>
 
-        <div class="content">
+        <div class="content" id="overview-view">
           <div class="section-heading">
             <div>
               <div class="eyebrow">OVERVIEW</div>
@@ -62,8 +62,57 @@
             <div class="log" id="log" role="log" aria-live="polite"></div>
           </section>
         </div>
+
+        <div class="content" id="apps-script-view" hidden>
+          <div class="section-heading">
+            <div><div class="eyebrow">APPS SCRIPT</div><h2>Project lifecycle</h2></div>
+            <button class="icon-button light" id="apps-refresh" type="button" title="Refresh Apps Script status" aria-label="Refresh Apps Script status"><i data-lucide="refresh-cw"></i></button>
+          </div>
+
+          <div class="status-list">
+            <div class="status-row">
+              <div class="capability-icon account"><i data-lucide="user-round"></i></div>
+              <div><h3>Google account</h3><p id="apps-account-detail">Checking authorization</p></div>
+              <div class="badge" id="apps-auth-status">Checking</div>
+            </div>
+            <div class="status-row">
+              <div class="capability-icon apps"><i data-lucide="file-code-2"></i></div>
+              <div><h3>Script project</h3><p class="mono-detail" id="apps-project-detail">Checking project</p></div>
+              <div class="badge" id="apps-project-status">Checking</div>
+            </div>
+          </div>
+
+          <div class="action-bar" aria-label="Apps Script actions">
+            <button class="command-button" id="apps-login" type="button"><i data-lucide="log-in"></i>Sign in</button>
+            <button class="command-button" id="apps-create" type="button"><i data-lucide="plus"></i>Create project</button>
+            <button class="command-button" id="apps-open" type="button"><i data-lucide="external-link"></i>Open editor</button>
+            <button class="command-button primary" id="apps-push" type="button"><i data-lucide="upload"></i>Push files</button>
+          </div>
+
+          <section class="activity" aria-labelledby="apps-activity-title">
+            <div class="activity-heading"><h2 id="apps-activity-title">Activity</h2><button id="apps-clear-log" class="text-button" type="button">Clear</button></div>
+            <div class="log" id="apps-log" role="log" aria-live="polite"></div>
+          </section>
+        </div>
       </section>
     </main>
+
+    <dialog id="create-dialog">
+      <form id="create-form">
+        <div class="dialog-heading"><h2>Create Apps Script project</h2><button class="dialog-close" type="button" data-close-dialog="create-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
+        <label for="script-title">Project title</label>
+        <input id="script-title" name="title" maxlength="100" required />
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-close-dialog="create-dialog">Cancel</button><button class="command-button primary" type="submit"><i data-lucide="plus"></i>Create</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="push-dialog">
+      <form id="push-form">
+        <div class="dialog-heading"><h2>Push local files?</h2><button class="dialog-close" type="button" data-close-dialog="push-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
+        <p class="dialog-copy">Remote Apps Script content will be replaced by the local project files.</p>
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-close-dialog="push-dialog">Cancel</button><button class="command-button danger" type="submit"><i data-lucide="upload"></i>Push and replace</button></div>
+      </form>
+    </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

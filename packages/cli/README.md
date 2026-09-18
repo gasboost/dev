@@ -28,6 +28,8 @@ pnpm console
 
 ConsoleのBrowser UIから実行できるのは、登録済みoperationと各operationのschemaを満たすstructured inputだけです。
 
+`appsScript` capabilityを設定したプロジェクトでは、Google認証、Apps Script project作成、editor表示、local filesのpushをConsoleから実行できます。
+
 ## RTDB Security Rules
 
 `@gasboost/realtime-firebase` で定義した Firebase Realtime Database の Security Rules を生成できます。
