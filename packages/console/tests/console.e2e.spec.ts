@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { startGasboostConsole } from "../dist/index.js";
 
-describe("Gasboost Console E2E", () => {
+describe("gasboost console E2E", () => {
   let close: (() => Promise<void>) | undefined;
   let projectRoot: string | undefined;
 
@@ -35,7 +35,7 @@ describe("Gasboost Console E2E", () => {
     const html = await uiResponse.text();
     const token = /name="gasboost-session" content="([^"]+)"/.exec(html)?.[1];
     expect(uiResponse.status).toBe(200);
-    expect(html).toContain("Gasboost Console");
+    expect(html).toContain("gasboost console");
     expect(token).toBeDefined();
 
     const operationResponse = await fetch(

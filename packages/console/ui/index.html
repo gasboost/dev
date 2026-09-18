@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="gasboost-session" content="__GASBOOST_SESSION_TOKEN__" />
-    <title>Gasboost Console</title>
+    <title>gasboost console</title>
   </head>
   <body>
     <header class="topbar">
-      <div class="brand-mark">G</div>
+      <img class="brand-mark" src="/gasboost-logo.png" alt="" />
       <div>
-        <div class="product-name">Gasboost Console</div>
+        <div class="product-name">gasboost console</div>
         <div class="project-path" id="project-path">Loading project...</div>
       </div>
       <button class="icon-button" id="refresh" type="button" title="Refresh project state" aria-label="Refresh project state">
@@ -66,13 +66,26 @@
         <div class="content" id="development-view" hidden>
           <div class="section-heading">
             <div><div class="eyebrow">DEVELOPMENT</div><h2>Local application</h2></div>
+            <button class="icon-button light" id="development-refresh" type="button" title="Refresh development status" aria-label="Refresh development status"><i data-lucide="refresh-cw"></i></button>
           </div>
-          <div class="info-box"><span class="info-box__icon">i</span><div>Dev server operations are intentionally separated from arbitrary package script execution. Start/stop wiring can be added as registered operations without opening a shell launcher.</div></div>
+          <div class="status-list">
+            <div class="status-row">
+              <div class="capability-icon development"><i data-lucide="code-2"></i></div>
+              <div><h3>Process</h3><p class="mono-detail" id="development-state-detail">Checking local process</p></div>
+              <div class="badge" id="development-state-status">Checking</div>
+            </div>
+            <div class="status-row">
+              <div class="capability-icon development"><i data-lucide="external-link"></i></div>
+              <div><h3>Local URL</h3><p class="mono-detail" id="development-url-detail">Checking local URL</p></div>
+              <div class="badge" id="development-url-status">Checking</div>
+            </div>
+          </div>
+          <div class="info-box"><span class="info-box__icon">i</span><div>Development uses the project package.json dev script through registered operations only.</div></div>
           <div class="action-bar">
-            <button class="command-button" type="button" disabled><i data-lucide="play"></i>Start</button>
-            <button class="command-button" type="button" disabled><i data-lucide="square"></i>Stop</button>
-            <button class="command-button" type="button" disabled><i data-lucide="refresh-cw"></i>Restart</button>
-            <button class="command-button" type="button" disabled><i data-lucide="external-link"></i>Open local app</button>
+            <button class="command-button primary" id="development-start" type="button"><i data-lucide="play"></i>Start</button>
+            <button class="command-button" id="development-stop" type="button"><i data-lucide="square"></i>Stop</button>
+            <button class="command-button" id="development-restart" type="button"><i data-lucide="refresh-cw"></i>Restart</button>
+            <button class="command-button" id="development-open" type="button"><i data-lucide="external-link"></i>Open local app</button>
           </div>
           <section class="activity" aria-labelledby="development-activity-title">
             <div class="activity-heading"><h2 id="development-activity-title">Activity</h2><button id="development-clear-log" class="text-button" type="button">Clear</button></div>

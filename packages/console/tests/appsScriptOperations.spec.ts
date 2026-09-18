@@ -204,6 +204,80 @@ describe("Apps Script operations", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("接続済みScript IDのeditorを開く", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123" }),
+      "utf8",
+    );
+    const browserOpener = vi.fn(async () => undefined);
+    const operation = operationById(
+      createAppsScriptOperations({
+        projectRoot,
+        config: { type: "webapp" },
+        clasp: { run: vi.fn() } as ClaspRunner,
+        browserOpener,
+      }),
+      "apps.open",
+    );
+
+    await expect(operation.handler({}, context())).resolves.toEqual({ opened: true });
+    expect(browserOpener).toHaveBeenCalledWith(
+      "https://script.google.com/home/projects/script-123/edit",
+    );
+  });
+
+  it("deployment createのdescriptionは空文字でも省略でも有効", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123" }),
+      "utf8",
+    );
+    const run = vi.fn(async () => ({ exitCode: 0, stdout: "Deployment ID: dep-123", stderr: "" }));
+    const operation = operationById(
+      createAppsScriptOperations({
+        projectRoot,
+        config: { type: "webapp" },
+        clasp: { run },
+      }),
+      "apps.deployment.create",
+    );
+
+    expect(operation.input.safeParse({}).success).toBe(true);
+    expect(operation.input.safeParse({ description: "" }).success).toBe(true);
+    await operation.handler({ description: "" }, context());
+
+    expect(run).toHaveBeenCalledWith(["create-deployment"], expect.any(Function));
+  });
+
+  it("deployment updateはclasp 3.4.1の位置引数でdeployment IDを渡す", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123" }),
+      "utf8",
+    );
+    const run = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
+    const operation = operationById(
+      createAppsScriptOperations({
+        projectRoot,
+        config: { type: "webapp" },
+        clasp: { run },
+      }),
+      "apps.deployment.update",
+    );
+
+    await operation.handler({ deploymentId: "dep-123" }, context());
+
+    expect(run).toHaveBeenCalledWith(["update-deployment", "dep-123"], expect.any(Function));
+    expect(run).not.toHaveBeenCalledWith(
+      ["update-deployment", "--deploymentId", "dep-123"],
+      expect.any(Function),
+    );
+  });
+
   it("壊れた.clasp.jsonを未作成として上書きしない", async () => {
     const projectRoot = await createProject();
     await writeFile(join(projectRoot, ".clasp.json"), "not-json", "utf8");

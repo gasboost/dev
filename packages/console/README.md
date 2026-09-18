@@ -1,6 +1,6 @@
 # @gasboost/console
 
-Gasboost project lifecycle UI.
+gasboost project lifecycle UI.
 
 ```bash
 gasboost console open

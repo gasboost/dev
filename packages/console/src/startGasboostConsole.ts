@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createAppsScriptOperations } from "./appsScript/appsScriptOperations.js";
 import { createClaspRunner } from "./appsScript/ClaspRunner.js";
 import type { ClaspRunner } from "./appsScript/ClaspRunner.js";
+import { createDevelopmentOperations } from "./development/developmentOperations.js";
 import { createFirebaseOperations } from "./firebase/firebaseOperations.js";
 import { createFirebaseRunner } from "./firebase/FirebaseRunner.js";
 import type { FirebaseRunner } from "./firebase/FirebaseRunner.js";
@@ -34,14 +35,24 @@ export async function startGasboostConsole({
     config,
     firebase,
   });
+  const development = createDevelopmentOperations({ projectRoot });
 
-  return startConsoleRuntime({
+  const runtime = await startConsoleRuntime({
     uiDirectory: fileURLToPath(new URL("./ui", import.meta.url)),
     operations: [
       createProjectInspectOperation(projectRoot),
+      ...development.operations,
       ...appsScriptOperations,
       ...firebaseOperations,
     ],
     openBrowser,
   });
+
+  return {
+    url: runtime.url,
+    close: async () => {
+      await development.cleanup();
+      await runtime.close();
+    },
+  };
 }

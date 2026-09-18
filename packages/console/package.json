@@ -1,7 +1,7 @@
 {
   "name": "@gasboost/console",
   "version": "0.3.0",
-  "description": "Gasboost project lifecycle console",
+  "description": "gasboost project lifecycle console",
   "type": "module",
   "exports": {
     ".": {
