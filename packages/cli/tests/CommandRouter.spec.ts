@@ -38,7 +38,11 @@ describe("CommandRouter", () => {
     expect(execute).not.toHaveBeenCalled();
 
     expect(log).toHaveBeenCalledWith(
-      ["Usage:", "  gasboost console open", "  gasboost rtdb rules"].join("\n"),
+      [
+        "Usage:",
+        "  gasboost console open [--no-browser]",
+        "  gasboost rtdb rules",
+      ].join("\n"),
     );
 
     log.mockRestore();
@@ -67,10 +71,24 @@ describe("CommandRouter", () => {
 
     await router.route(["console", "open"]);
 
-    expect(execute).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledWith({ openBrowser: true });
     expect(log).toHaveBeenCalledWith(
       "Gasboost Console opened: http://127.0.0.1:3000",
     );
+    log.mockRestore();
+  });
+
+  it("--no-browserではbrowserを開かずにconsoleを起動する", async () => {
+    const execute = vi.fn(async () => "http://127.0.0.1:3000");
+    const router = new CommandRouter({
+      consoleOpenCommand: { execute } as never,
+      rtdbRulesCommand: { execute: vi.fn() } as never,
+    });
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await router.route(["console", "open", "--no-browser"]);
+
+    expect(execute).toHaveBeenCalledWith({ openBrowser: false });
     log.mockRestore();
   });
 });

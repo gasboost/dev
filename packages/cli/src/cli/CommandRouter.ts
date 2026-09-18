@@ -20,16 +20,24 @@ export class CommandRouter {
   public async route(args: readonly string[]): Promise<void> {
     if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
       console.log(
-        ["Usage:", "  gasboost console open", "  gasboost rtdb rules"].join(
-          "\n",
-        ),
+        [
+          "Usage:",
+          "  gasboost console open [--no-browser]",
+          "  gasboost rtdb rules",
+        ].join("\n"),
       );
 
       return;
     }
 
-    if (args[0] === "console" && args[1] === "open" && args.length === 2) {
-      const url = await this.consoleOpenCommand.execute();
+    if (
+      args[0] === "console" &&
+      args[1] === "open" &&
+      (args.length === 2 || (args.length === 3 && args[2] === "--no-browser"))
+    ) {
+      const url = await this.consoleOpenCommand.execute({
+        openBrowser: args[2] !== "--no-browser",
+      });
       console.log(`Gasboost Console opened: ${url}`);
       return;
     }

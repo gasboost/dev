@@ -24,6 +24,8 @@ pnpm add -D @gasboost/cli
 pnpm console
 ```
 
+自動でBrowserを開かずに起動する場合は `gasboost console open --no-browser` を使用できます。
+
 ConsoleのBrowser UIから実行できるのは、登録済みoperationと各operationのschemaを満たすstructured inputだけです。
 
 ## RTDB Security Rules
@@ -75,7 +77,7 @@ CLI はこの module を実行し、export された `rtdb` の `rules()` を呼
 ### Generate
 
 ```bash
-gasboost console open
+gasboost console open [--no-browser]
 gasboost rtdb rules
 ```
 

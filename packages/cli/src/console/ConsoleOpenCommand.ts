@@ -7,9 +7,14 @@ export class ConsoleOpenCommand {
     this.projectRoot = projectRoot;
   }
 
-  public async execute(): Promise<string> {
+  public async execute({
+    openBrowser,
+  }: {
+    readonly openBrowser: boolean;
+  }): Promise<string> {
     const runtime = await startGasboostConsole({
       projectRoot: this.projectRoot,
+      openBrowser,
     });
 
     return runtime.url;
