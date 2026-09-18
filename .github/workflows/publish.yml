@@ -10,8 +10,60 @@ on:
       - main
 
 jobs:
-  publish:
+  check-versions:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    outputs:
+      publish-config: ${{ steps.versions.outputs.publish-config }}
+      publish-console-runtime: ${{ steps.versions.outputs.publish-console-runtime }}
+      publish-console: ${{ steps.versions.outputs.publish-console }}
+      publish-cli: ${{ steps.versions.outputs.publish-cli }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Check package versions
+        id: versions
+        run: |
+          check_package() {
+            local output="$1"
+            local manifest="$2"
+            local name
+            local version
+
+            name=$(node -p "require('./${manifest}').name")
+            version=$(node -p "require('./${manifest}').version")
+
+            echo "${name}@${version}"
+
+            if npm view "${name}@${version}" version > /dev/null 2>&1; then
+              echo "${output}=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "${output}=true" >> "$GITHUB_OUTPUT"
+            fi
+          }
+
+          check_package publish-config packages/config/package.json
+          check_package publish-console-runtime packages/console-runtime/package.json
+          check_package publish-console packages/console/package.json
+          check_package publish-cli packages/cli/package.json
+
+  publish:
+    needs: check-versions
+    if: ${{ needs.check-versions.outputs.publish-config == 'true' || needs.check-versions.outputs.publish-console-runtime == 'true' || needs.check-versions.outputs.publish-console == 'true' || needs.check-versions.outputs.publish-cli == 'true' }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -26,6 +78,9 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -37,27 +92,98 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages
-        run: pnpm -r build
+      # If a Publish <package> step returns npm 404, bootstrap that scoped package
+      # once in npm and configure Trusted Publishing for this workflow.
+      # Later version bumps should publish via OIDC.
 
-      - name: Typecheck packages
-        run: pnpm -r typecheck
+      # @gasboost/config is consumed by @gasboost/console and @gasboost/cli.
+      # Build it before downstream packages, and publish it first when its version changed.
+      - name: Typecheck config
+        if: ${{ needs.check-versions.outputs.publish-config == 'true' }}
+        run: pnpm --filter @gasboost/config typecheck
 
-      - name: Test packages
-        run: pnpm -r test
+      - name: Test config
+        if: ${{ needs.check-versions.outputs.publish-config == 'true' }}
+        run: pnpm --filter @gasboost/config test
 
-      - name: Verify package contents
-        run: pnpm -r pack:check
+      - name: Build config
+        if: ${{ needs.check-versions.outputs.publish-config == 'true' || needs.check-versions.outputs.publish-console == 'true' || needs.check-versions.outputs.publish-cli == 'true' }}
+        run: pnpm --filter @gasboost/config build
 
-      - name: Publish new package versions
-        run: |
-          for PACKAGE_DIR in packages/config packages/console-runtime packages/console packages/cli; do
-            NAME=$(node -p "require('./${PACKAGE_DIR}/package.json').name")
-            VERSION=$(node -p "require('./${PACKAGE_DIR}/package.json').version")
+      - name: Verify config package contents
+        if: ${{ needs.check-versions.outputs.publish-config == 'true' }}
+        working-directory: packages/config
+        run: pnpm pack
 
-            if npm view "${NAME}@${VERSION}" version > /dev/null 2>&1; then
-              echo "Skipping ${NAME}@${VERSION}: already published"
-            else
-              pnpm --filter "${NAME}" publish --access public --no-git-checks
-            fi
-          done
+      - name: Publish config
+        if: ${{ needs.check-versions.outputs.publish-config == 'true' }}
+        working-directory: packages/config
+        run: pnpm publish --access public --no-git-checks
+
+      # @gasboost/console-runtime is consumed by @gasboost/console.
+      - name: Typecheck console-runtime
+        if: ${{ needs.check-versions.outputs.publish-console-runtime == 'true' }}
+        run: pnpm --filter @gasboost/console-runtime typecheck
+
+      - name: Test console-runtime
+        if: ${{ needs.check-versions.outputs.publish-console-runtime == 'true' }}
+        run: pnpm --filter @gasboost/console-runtime test
+
+      - name: Build console-runtime
+        if: ${{ needs.check-versions.outputs.publish-console-runtime == 'true' || needs.check-versions.outputs.publish-console == 'true' }}
+        run: pnpm --filter @gasboost/console-runtime build
+
+      - name: Verify console-runtime package contents
+        if: ${{ needs.check-versions.outputs.publish-console-runtime == 'true' }}
+        working-directory: packages/console-runtime
+        run: pnpm pack
+
+      - name: Publish console-runtime
+        if: ${{ needs.check-versions.outputs.publish-console-runtime == 'true' }}
+        working-directory: packages/console-runtime
+        run: pnpm publish --access public --no-git-checks
+
+      # @gasboost/console is consumed by @gasboost/cli.
+      - name: Typecheck console
+        if: ${{ needs.check-versions.outputs.publish-console == 'true' }}
+        run: pnpm --filter @gasboost/console typecheck
+
+      - name: Test console
+        if: ${{ needs.check-versions.outputs.publish-console == 'true' }}
+        run: pnpm --filter @gasboost/console test
+
+      - name: Build console
+        if: ${{ needs.check-versions.outputs.publish-console == 'true' || needs.check-versions.outputs.publish-cli == 'true' }}
+        run: pnpm --filter @gasboost/console build
+
+      - name: Verify console package contents
+        if: ${{ needs.check-versions.outputs.publish-console == 'true' }}
+        working-directory: packages/console
+        run: pnpm pack
+
+      - name: Publish console
+        if: ${{ needs.check-versions.outputs.publish-console == 'true' }}
+        working-directory: packages/console
+        run: pnpm publish --access public --no-git-checks
+
+      - name: Typecheck cli
+        if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
+        run: pnpm --filter @gasboost/cli typecheck
+
+      - name: Test cli
+        if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
+        run: pnpm --filter @gasboost/cli test
+
+      - name: Build cli
+        if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
+        run: pnpm --filter @gasboost/cli build
+
+      - name: Verify cli package contents
+        if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
+        working-directory: packages/cli
+        run: pnpm pack
+
+      - name: Publish cli
+        if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
+        working-directory: packages/cli
+        run: pnpm publish --access public --no-git-checks
