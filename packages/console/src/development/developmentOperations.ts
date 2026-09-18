@@ -20,13 +20,15 @@ const LOCAL_URL_PATTERN = /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)
 
 export function createDevelopmentOperations({
   projectRoot,
+  browserOpener = openBrowser,
 }: {
   readonly projectRoot: string;
+  readonly browserOpener?: (url: string) => Promise<void>;
 }): {
   readonly operations: readonly DevelopmentOperation[];
   readonly cleanup: () => Promise<void>;
 } {
-  const manager = new DevelopmentProcessManager(projectRoot);
+  const manager = new DevelopmentProcessManager(projectRoot, browserOpener);
 
   return {
     cleanup: async () => {
@@ -82,7 +84,7 @@ export function createDevelopmentOperations({
           if (status.localUrl === undefined) {
             throw new Error("Local application URL is not available yet.");
           }
-          await openBrowser(status.localUrl);
+          await manager.open(status.localUrl);
           return status;
         },
       },
@@ -96,7 +98,10 @@ class DevelopmentProcessManager {
   private localUrl: string | undefined;
   private readonly logLines: string[] = [];
 
-  public constructor(private readonly projectRoot: string) {}
+  public constructor(
+    private readonly projectRoot: string,
+    private readonly browserOpener: (url: string) => Promise<void>,
+  ) {}
 
   public status(): DevelopmentStatus {
     return {
@@ -117,7 +122,7 @@ class DevelopmentProcessManager {
 
     const command = await resolveDevCommand(this.projectRoot);
     this.command = [command.executable, ...command.args];
-    this.localUrl = "http://127.0.0.1:5173";
+    this.localUrl = undefined;
     this.record(`$ ${this.command.join(" ")}`);
 
     const child = spawn(command.executable, command.args, {
@@ -147,11 +152,17 @@ class DevelopmentProcessManager {
     child.stderr.on("data", handleOutput);
     child.once("exit", (code, signal) => {
       this.record(`Development server exited${signal === null ? ` with code ${code ?? 0}` : ` by ${signal}`}.`);
-      if (this.child === child) this.child = undefined;
+      if (this.child === child) {
+        this.child = undefined;
+        this.localUrl = undefined;
+      }
     });
     child.once("error", (error) => {
       this.record(error.message);
-      if (this.child === child) this.child = undefined;
+      if (this.child === child) {
+        this.child = undefined;
+        this.localUrl = undefined;
+      }
     });
 
     return this.status();
@@ -162,6 +173,7 @@ class DevelopmentProcessManager {
     if (child === undefined) return this.status();
 
     this.child = undefined;
+    this.localUrl = undefined;
     let exited = false;
     child.once("exit", () => {
       exited = true;
@@ -180,6 +192,10 @@ class DevelopmentProcessManager {
 
     this.record("Development server stopped.");
     return this.status();
+  }
+
+  public async open(url: string): Promise<void> {
+    await this.browserOpener(url);
   }
 
   private record(message: string): void {

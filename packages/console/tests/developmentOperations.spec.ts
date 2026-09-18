@@ -43,6 +43,40 @@ describe("Development operations", () => {
 
     await expect(start?.handler({}, context())).rejects.toThrow("No package.json dev script");
   });
+
+  it("dev serverが出力したcustom portのURLをstatusとopenに使用する", async () => {
+    const projectRoot = await createProject('{"scripts":{"dev":"node server.mjs"}}');
+    await writeFile(
+      join(projectRoot, "server.mjs"),
+      'console.log("Local: http://localhost:4317/");\nsetInterval(() => {}, 1000);\n',
+      "utf8",
+    );
+    const browserOpener = vi.fn<(url: string) => Promise<void>>().mockResolvedValue();
+    const { operations, cleanup } = createDevelopmentOperations({
+      projectRoot,
+      browserOpener,
+    });
+    const start = operations.find(({ id }) => id === "development.start");
+    const status = operations.find(({ id }) => id === "development.status");
+    const open = operations.find(({ id }) => id === "development.open");
+
+    try {
+      const starting = await start?.handler({}, context());
+      expect(starting?.localUrl).not.toBe("http://127.0.0.1:5173");
+
+      await vi.waitFor(async () => {
+        await expect(status?.handler({}, context())).resolves.toMatchObject({
+          running: true,
+          localUrl: "http://127.0.0.1:4317/",
+        });
+      });
+
+      await open?.handler({}, context());
+      expect(browserOpener).toHaveBeenCalledWith("http://127.0.0.1:4317/");
+    } finally {
+      await cleanup();
+    }
+  });
 });
 
 function context() {

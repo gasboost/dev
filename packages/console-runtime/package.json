@@ -1,6 +1,6 @@
 {
   "name": "@gasboost/console-runtime",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local application runtime for project lifecycle consoles",
   "type": "module",
   "exports": {
