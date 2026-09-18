@@ -25,20 +25,23 @@ export class AppsScriptProjectRepository {
   }
 
   public async read(): Promise<AppsScriptProjectState> {
-    const [settings, manifestExists] = await Promise.all([
-      this.readClaspSettings(),
-      this.exists(join(this.projectRoot, "appsscript.json")),
-    ]);
+    const settings = await this.readClaspSettings();
+    const manifestExists = await this.exists(
+      join(this.projectRoot, settings.rootDir, "appsscript.json"),
+    );
 
     return { ...settings, manifestExists };
   }
 
   public async connect(scriptId: string): Promise<void> {
-    const current = await this.read();
-    const rootDir = current.rootDir;
+    const current = (await this.readClaspObject()) ?? {};
+    const rootDir =
+      typeof current.rootDir === "string"
+        ? current.rootDir
+        : (this.config.rootDir ?? ".");
     await writeFile(
       join(this.projectRoot, ".clasp.json"),
-      `${JSON.stringify({ scriptId, rootDir }, null, 2)}\n`,
+      `${JSON.stringify({ ...current, scriptId, rootDir }, null, 2)}\n`,
       "utf8",
     );
   }
@@ -53,23 +56,32 @@ export class AppsScriptProjectRepository {
       rootDir: this.config.rootDir ?? ".",
     } as const;
 
+    const value = await this.readClaspObject();
+    if (value === undefined) return fallback;
+
+    if (typeof value.scriptId !== "string" || value.scriptId.length === 0) {
+      return fallback;
+    }
+
+    return {
+      configured: true,
+      scriptId: value.scriptId,
+      rootDir:
+        typeof value.rootDir === "string"
+          ? value.rootDir
+          : (this.config.rootDir ?? "."),
+    };
+  }
+
+  private async readClaspObject(): Promise<Record<string, unknown> | undefined> {
     try {
       const value = JSON.parse(
         await readFile(join(this.projectRoot, ".clasp.json"), "utf8"),
-      ) as { readonly scriptId?: unknown; readonly rootDir?: unknown };
-
-      if (typeof value.scriptId !== "string" || value.scriptId.length === 0) {
-        return fallback;
+      ) as unknown;
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        throw new Error("Expected a JSON object.");
       }
-
-      return {
-        configured: true,
-        scriptId: value.scriptId,
-        rootDir:
-          typeof value.rootDir === "string"
-            ? value.rootDir
-            : (this.config.rootDir ?? "."),
-      };
+      return value as Record<string, unknown>;
     } catch (error) {
       if (
         typeof error === "object" &&
@@ -77,7 +89,7 @@ export class AppsScriptProjectRepository {
         "code" in error &&
         error.code === "ENOENT"
       ) {
-        return fallback;
+        return undefined;
       }
 
       throw new Error(

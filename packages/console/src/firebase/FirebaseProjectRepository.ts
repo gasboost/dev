@@ -41,21 +41,44 @@ export class FirebaseProjectRepository {
 
   public async connect(projectId: string): Promise<void> {
     await this.enable();
+    const current = (await this.readFirebasercObject()) ?? {};
+    const projects =
+      typeof current.projects === "object" &&
+      current.projects !== null &&
+      !Array.isArray(current.projects)
+        ? (current.projects as Record<string, unknown>)
+        : {};
     await writeFile(
       join(this.projectRoot, ".firebaserc"),
-      `${JSON.stringify({ projects: { default: projectId } }, null, 2)}\n`,
+      `${JSON.stringify(
+        { ...current, projects: { ...projects, default: projectId } },
+        null,
+        2,
+      )}\n`,
       "utf8",
     );
   }
 
   private async readFirebasercProjectId(): Promise<string | undefined> {
+    const value = await this.readFirebasercObject();
+    if (value === undefined) return undefined;
+    const projects = value.projects;
+    if (typeof projects !== "object" || projects === null || Array.isArray(projects)) {
+      return undefined;
+    }
+    const projectMap = projects as Record<string, unknown>;
+    return typeof projectMap.default === "string" ? projectMap.default : undefined;
+  }
+
+  private async readFirebasercObject(): Promise<Record<string, unknown> | undefined> {
     try {
       const value = JSON.parse(
         await readFile(join(this.projectRoot, ".firebaserc"), "utf8"),
-      ) as { readonly projects?: { readonly default?: unknown } };
-      return typeof value.projects?.default === "string"
-        ? value.projects.default
-        : undefined;
+      ) as unknown;
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        throw new Error("Expected a JSON object.");
+      }
+      return value as Record<string, unknown>;
     } catch (error) {
       if (
         typeof error === "object" &&

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -30,7 +30,9 @@ describe("Apps Script operations", () => {
     const operations = createAppsScriptOperations({
       projectRoot,
       config: { type: "webapp" },
-      clasp: { run: vi.fn() } as ClaspRunner,
+      clasp: {
+        run: vi.fn(async () => ({ exitCode: 0, stdout: "{}", stderr: "" })),
+      },
     });
 
     expect(operations.map(({ id }) => id)).not.toContain("apps.credentials.register");
@@ -62,6 +64,62 @@ describe("Apps Script operations", () => {
       desired: true,
     });
     expect(run).toHaveBeenCalledWith(["show-authorized-user", "--json"]);
+  });
+
+  it("rootDir配下のmanifestをactual stateとして検出する", async () => {
+    const projectRoot = await createProject();
+    await mkdir(join(projectRoot, "dist"));
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123", rootDir: "dist" }),
+      "utf8",
+    );
+    await writeFile(join(projectRoot, "dist", "appsscript.json"), "{}", "utf8");
+    const operations = createAppsScriptOperations({
+      projectRoot,
+      config: { type: "webapp" },
+      clasp: {
+        run: vi.fn(async () => ({ exitCode: 0, stdout: "{}", stderr: "" })),
+      },
+    });
+
+    await expect(
+      operationById(operations, "apps.status").handler({}, context()),
+    ).resolves.toMatchObject({ rootDir: "dist", manifestExists: true });
+  });
+
+  it("connectで既存.clasp.jsonの管理対象外fieldを保持する", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({
+        scriptId: "old-script",
+        rootDir: "build",
+        filePushOrder: ["a.js"],
+      }),
+      "utf8",
+    );
+    const operations = createAppsScriptOperations({
+      projectRoot,
+      config: { type: "webapp" },
+      clasp: {
+        run: vi.fn(async () => ({ exitCode: 0, stdout: "{}", stderr: "" })),
+      },
+    });
+
+    await operationById(operations, "apps.connect").handler(
+      { scriptId: "new-script" },
+      context(),
+    );
+
+    const settings = JSON.parse(
+      await readFile(join(projectRoot, ".clasp.json"), "utf8"),
+    ) as Record<string, unknown>;
+    expect(settings).toEqual({
+      scriptId: "new-script",
+      rootDir: "build",
+      filePushOrder: ["a.js"],
+    });
   });
 
   it("schema-valid titleだけでwebapp projectを作成する", async () => {

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -42,6 +42,38 @@ describe("Firebase operations", () => {
     await expect(readFile(join(projectRoot, ".env"), "utf8")).resolves.toContain(
       "FIREBASE_PROJECT_ID=my-project",
     );
+  });
+
+  it("connect preserves existing .firebaserc fields and project aliases", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".firebaserc"),
+      JSON.stringify({
+        projects: { default: "old", staging: "staging-project" },
+        targets: { db: {} },
+      }),
+      "utf8",
+    );
+    const operation = operationById(
+      createFirebaseOperations({
+        projectRoot,
+        config: {},
+        firebase: {
+          run: vi.fn(async () => ({ exitCode: 0, stdout: "[]", stderr: "" })),
+        },
+      }),
+      "firebase.connect",
+    );
+
+    await operation.handler({ projectId: "new-project" }, context());
+
+    const settings = JSON.parse(
+      await readFile(join(projectRoot, ".firebaserc"), "utf8"),
+    ) as Record<string, unknown>;
+    expect(settings).toEqual({
+      projects: { default: "new-project", staging: "staging-project" },
+      targets: { db: {} },
+    });
   });
 });
 
