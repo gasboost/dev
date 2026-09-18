@@ -130,7 +130,7 @@ jobs:
         run: pnpm --filter @gasboost/console-runtime test
 
       - name: Build console-runtime
-        if: ${{ needs.check-versions.outputs.publish-console-runtime == 'true' || needs.check-versions.outputs.publish-console == 'true' }}
+        if: ${{ needs.check-versions.outputs.publish-console-runtime == 'true' || needs.check-versions.outputs.publish-console == 'true' || needs.check-versions.outputs.publish-cli == 'true' }}
         run: pnpm --filter @gasboost/console-runtime build
 
       - name: Verify console-runtime package contents
