@@ -64,20 +64,55 @@ describe("Development operations", () => {
       const starting = await start?.handler({}, context());
       expect(starting).toMatchObject({
         running: true,
-        localUrl: "http://127.0.0.1:4317/",
+        localUrl: "http://localhost:4317/",
       });
 
       await expect(status?.handler({}, context())).resolves.toMatchObject({
         running: true,
-        localUrl: "http://127.0.0.1:4317/",
+        localUrl: "http://localhost:4317/",
       });
 
       await open?.handler({}, context());
-      expect(browserOpener).toHaveBeenCalledWith("http://127.0.0.1:4317/");
+      expect(browserOpener).toHaveBeenCalledWith("http://localhost:4317/");
     } finally {
       await cleanup();
     }
   });
+
+  it.each([
+    ["localhost", "http://localhost:4321/", "http://localhost:4321/"],
+    ["127.0.0.1", "http://127.0.0.1:4322/", "http://127.0.0.1:4322/"],
+    ["IPv6 loopback", "http://[::1]:4323/", "http://[::1]:4323/"],
+  ])(
+    "dev serverが出力した%s URLのhostをstatusとopenで保持する",
+    async (_label, emittedUrl, expectedUrl) => {
+      const projectRoot = await createProject('{"scripts":{"dev":"node server.mjs"}}');
+      await writeFile(
+        join(projectRoot, "server.mjs"),
+        `console.log("Local: ${emittedUrl}");\nsetInterval(() => {}, 1000);\n`,
+        "utf8",
+      );
+      const browserOpener = vi.fn<(url: string) => Promise<void>>().mockResolvedValue();
+      const { operations, cleanup } = createDevelopmentOperations({
+        projectRoot,
+        browserOpener,
+      });
+      const start = operations.find(({ id }) => id === "development.start");
+      const open = operations.find(({ id }) => id === "development.open");
+
+      try {
+        await expect(start?.handler({}, context())).resolves.toMatchObject({
+          running: true,
+          localUrl: expectedUrl,
+        });
+
+        await open?.handler({}, context());
+        expect(browserOpener).toHaveBeenCalledWith(expectedUrl);
+      } finally {
+        await cleanup();
+      }
+    },
+  );
 
   it("dev serverのURL検出までstart resultを待つ", async () => {
     const projectRoot = await createProject('{"scripts":{"dev":"node server.mjs"}}');
@@ -92,7 +127,7 @@ describe("Development operations", () => {
     try {
       await expect(start?.handler({}, context())).resolves.toMatchObject({
         running: true,
-        localUrl: "http://127.0.0.1:4319/",
+        localUrl: "http://localhost:4319/",
       });
     } finally {
       await cleanup();
@@ -174,11 +209,11 @@ describe("Development operations", () => {
 
     try {
       await expect(start?.handler({}, context())).resolves.toMatchObject({
-        localUrl: "http://127.0.0.1:4320/",
+        localUrl: "http://localhost:4320/",
       });
 
       await open?.handler({}, context());
-      expect(browserOpener).toHaveBeenCalledWith("http://127.0.0.1:4320/");
+      expect(browserOpener).toHaveBeenCalledWith("http://localhost:4320/");
       expect(browserOpener.mock.calls[0]?.[0]).not.toContain("\u001b");
     } finally {
       await cleanup();

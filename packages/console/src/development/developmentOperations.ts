@@ -264,7 +264,7 @@ async function resolveDevCommand(projectRoot: string): Promise<{
 }
 
 function normalizeLocalUrl(url: string): string {
-  const parsed = new URL(url.replace("http://localhost", "http://127.0.0.1"));
+  const parsed = new URL(url);
   return parsed.toString();
 }
 
