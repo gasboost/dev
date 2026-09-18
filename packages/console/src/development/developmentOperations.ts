@@ -21,14 +21,20 @@ const LOCAL_URL_PATTERN = /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)
 export function createDevelopmentOperations({
   projectRoot,
   browserOpener = openBrowser,
+  urlDetectionTimeoutMs = 5000,
 }: {
   readonly projectRoot: string;
   readonly browserOpener?: (url: string) => Promise<void>;
+  readonly urlDetectionTimeoutMs?: number;
 }): {
   readonly operations: readonly DevelopmentOperation[];
   readonly cleanup: () => Promise<void>;
 } {
-  const manager = new DevelopmentProcessManager(projectRoot, browserOpener);
+  const manager = new DevelopmentProcessManager(
+    projectRoot,
+    browserOpener,
+    urlDetectionTimeoutMs,
+  );
 
   return {
     cleanup: async () => {
@@ -97,10 +103,12 @@ class DevelopmentProcessManager {
   private command: readonly string[] | undefined;
   private localUrl: string | undefined;
   private readonly logLines: string[] = [];
+  private readonly statusWaiters = new Set<() => void>();
 
   public constructor(
     private readonly projectRoot: string,
     private readonly browserOpener: (url: string) => Promise<void>,
+    private readonly urlDetectionTimeoutMs: number,
   ) {}
 
   public status(): DevelopmentStatus {
@@ -137,11 +145,14 @@ class DevelopmentProcessManager {
     this.child = child;
 
     const handleOutput = (chunk: Buffer): void => {
-      const text = chunk.toString("utf8");
+      const text = stripAnsi(chunk.toString("utf8"));
       const url = LOCAL_URL_PATTERN.exec(text)?.[0];
-      if (url !== undefined) this.localUrl = normalizeLocalUrl(url);
+      if (url !== undefined) {
+        this.localUrl = normalizeLocalUrl(url);
+        this.notifyStatusWaiters();
+      }
       for (const line of text.split(/\r?\n/)) {
-        const trimmed = stripAnsi(line).trimEnd();
+        const trimmed = line.trimEnd();
         if (trimmed.length === 0) continue;
         this.record(trimmed);
         log(trimmed);
@@ -155,6 +166,7 @@ class DevelopmentProcessManager {
       if (this.child === child) {
         this.child = undefined;
         this.localUrl = undefined;
+        this.notifyStatusWaiters();
       }
     });
     child.once("error", (error) => {
@@ -162,9 +174,11 @@ class DevelopmentProcessManager {
       if (this.child === child) {
         this.child = undefined;
         this.localUrl = undefined;
+        this.notifyStatusWaiters();
       }
     });
 
+    await this.waitForLocalUrlOrStop(child);
     return this.status();
   }
 
@@ -204,6 +218,28 @@ class DevelopmentProcessManager {
       this.logLines.splice(0, this.logLines.length - MAX_LOG_LINES);
     }
   }
+
+  private async waitForLocalUrlOrStop(
+    child: ChildProcessWithoutNullStreams,
+  ): Promise<void> {
+    if (this.localUrl !== undefined || this.child !== child) return;
+
+    await new Promise<void>((resolve) => {
+      const waiter = (): void => {
+        clearTimeout(timeout);
+        this.statusWaiters.delete(waiter);
+        resolve();
+      };
+      const timeout = setTimeout(waiter, this.urlDetectionTimeoutMs);
+      this.statusWaiters.add(waiter);
+    });
+  }
+
+  private notifyStatusWaiters(): void {
+    const waiters = [...this.statusWaiters];
+    this.statusWaiters.clear();
+    for (const waiter of waiters) waiter();
+  }
 }
 
 async function resolveDevCommand(projectRoot: string): Promise<{
@@ -227,7 +263,8 @@ async function resolveDevCommand(projectRoot: string): Promise<{
 }
 
 function normalizeLocalUrl(url: string): string {
-  return url.replace("http://localhost", "http://127.0.0.1");
+  const parsed = new URL(url.replace("http://localhost", "http://127.0.0.1"));
+  return parsed.toString();
 }
 
 function stripAnsi(value: string): string {
