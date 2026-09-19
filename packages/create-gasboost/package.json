@@ -1,5 +1,5 @@
 {
-  "name": "create-gasboost",
+  "name": "@gasboost/create",
   "version": "0.1.0",
   "description": "Capability-driven project generator for the Gasboost ecosystem",
   "type": "module",
@@ -49,5 +49,8 @@
     "url": "https://github.com/gasboost/dev.git",
     "directory": "packages/create-gasboost"
   },
-  "homepage": "https://github.com/gasboost/dev"
+  "homepage": "https://github.com/gasboost/dev",
+  "publishConfig": {
+    "access": "public"
+  }
 }

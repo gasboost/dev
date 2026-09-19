@@ -10,6 +10,7 @@ const packageDirectories = [
   "packages/console-runtime",
   "packages/console",
   "packages/cli",
+  "packages/create-gasboost",
 ];
 
 const projectRoot = await mkdtemp(join(tmpdir(), "gasboost-packed-smoke-"));
@@ -21,16 +22,28 @@ try {
       const packageJson = JSON.parse(
         await readFile(join(workspaceRoot, directory, "package.json"), "utf8"),
       );
-      const archiveName = `${packageJson.name.slice(1).replace("/", "-")}-${packageJson.version}.tgz`;
+
+      const archiveName = `${packageJson.name
+        .slice(1)
+        .replace("/", "-")}-${packageJson.version}.tgz`;
+
       return join(workspaceRoot, directory, archiveName);
     }),
   );
 
   await writeFile(
     join(projectRoot, "package.json"),
-    JSON.stringify({ name: "gasboost-packed-smoke", private: true }, null, 2),
+    JSON.stringify(
+      {
+        name: "gasboost-packed-smoke",
+        private: true,
+      },
+      null,
+      2,
+    ),
     "utf8",
   );
+
   await writeFile(
     join(projectRoot, "gasboost.config.ts"),
     'export default { appsScript: { type: "webapp" } };\n',
@@ -39,12 +52,22 @@ try {
 
   await run("npm", ["install", "--ignore-scripts", ...tarballs], projectRoot);
 
+  const createPath = join(
+    projectRoot,
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "create-gasboost.cmd" : "create-gasboost",
+  );
+
+  await run(createPath, ["--help"], projectRoot);
+
   const cliPath = join(
     projectRoot,
     "node_modules",
     ".bin",
     process.platform === "win32" ? "gasboost.cmd" : "gasboost",
   );
+
   cli = spawn(cliPath, ["console", "open", "--no-browser"], {
     cwd: projectRoot,
     env: process.env,
@@ -52,6 +75,7 @@ try {
   });
 
   const url = await waitForConsoleUrl(cli);
+
   const uiResponse = await fetch(url);
   const html = await uiResponse.text();
 
@@ -67,15 +91,19 @@ try {
     throw new Error("Packed Console UI did not contain a session token");
   }
 
-  const operationResponse = await fetch(`${url}/api/operations/project.inspect`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Origin: url,
-      "X-Gasboost-Session": sessionToken,
+  const operationResponse = await fetch(
+    `${url}/api/operations/project.inspect`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: url,
+        "X-Gasboost-Session": sessionToken,
+      },
+      body: "{}",
     },
-    body: "{}",
-  });
+  );
+
   const events = await operationResponse.text();
 
   if (
@@ -89,16 +117,28 @@ try {
   console.log("Packed package smoke test passed");
 } finally {
   cli?.kill("SIGTERM");
-  await rm(projectRoot, { recursive: true, force: true });
+
+  await rm(projectRoot, {
+    recursive: true,
+    force: true,
+  });
 }
 
 function run(command, args, cwd) {
   return new Promise((resolveRun, reject) => {
-    const child = spawn(command, args, { cwd, stdio: "inherit" });
+    const child = spawn(command, args, {
+      cwd,
+      stdio: "inherit",
+    });
+
     child.once("error", reject);
+
     child.once("exit", (code) => {
-      if (code === 0) resolveRun();
-      else reject(new Error(`${command} exited with code ${code}`));
+      if (code === 0) {
+        resolveRun();
+      } else {
+        reject(new Error(`${command} exited with code ${code}`));
+      }
     });
   });
 }
@@ -107,14 +147,17 @@ function waitForConsoleUrl(child) {
   return new Promise((resolveUrl, reject) => {
     let stdout = "";
     let stderr = "";
+
     const timeout = setTimeout(() => {
       reject(new Error(`Timed out waiting for Console URL\n${stderr}`));
     }, 10_000);
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
+
     child.stdout.on("data", (chunk) => {
       stdout += chunk;
+
       const match = /Gasboost Console opened: (http:\/\/127\.0\.0\.1:\d+)/.exec(
         stdout,
       );
@@ -124,15 +167,19 @@ function waitForConsoleUrl(child) {
         resolveUrl(match[1]);
       }
     });
+
     child.stderr.on("data", (chunk) => {
       stderr += chunk;
     });
+
     child.once("error", (error) => {
       clearTimeout(timeout);
       reject(error);
     });
+
     child.once("exit", (code) => {
       clearTimeout(timeout);
+
       reject(new Error(`Gasboost CLI exited with code ${code}\n${stderr}`));
     });
   });

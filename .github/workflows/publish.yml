@@ -22,6 +22,7 @@ jobs:
       publish-console-runtime: ${{ steps.versions.outputs.publish-console-runtime }}
       publish-console: ${{ steps.versions.outputs.publish-console }}
       publish-cli: ${{ steps.versions.outputs.publish-cli }}
+      publish-create: ${{ steps.versions.outputs.publish-create }}
 
     steps:
       - name: Checkout
@@ -60,10 +61,11 @@ jobs:
           check_package publish-console-runtime packages/console-runtime/package.json
           check_package publish-console packages/console/package.json
           check_package publish-cli packages/cli/package.json
+          check_package publish-create packages/create-gasboost/package.json
 
   publish:
     needs: check-versions
-    if: ${{ needs.check-versions.outputs.publish-config == 'true' || needs.check-versions.outputs.publish-console-runtime == 'true' || needs.check-versions.outputs.publish-console == 'true' || needs.check-versions.outputs.publish-cli == 'true' }}
+    if: ${{ needs.check-versions.outputs.publish-config == 'true' || needs.check-versions.outputs.publish-console-runtime == 'true' || needs.check-versions.outputs.publish-console == 'true' || needs.check-versions.outputs.publish-cli == 'true' || needs.check-versions.outputs.publish-create == 'true' }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -163,6 +165,7 @@ jobs:
         working-directory: packages/console
         run: pnpm publish --access public --no-git-checks
 
+      # @gasboost/cli consumes config, console-runtime and console.
       - name: Build cli
         if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
         run: pnpm --filter @gasboost/cli build
@@ -183,4 +186,27 @@ jobs:
       - name: Publish cli
         if: ${{ needs.check-versions.outputs.publish-cli == 'true' }}
         working-directory: packages/cli
+        run: pnpm publish --access public --no-git-checks
+
+      # @gasboost/create is a standalone project initializer.
+      - name: Typecheck create
+        if: ${{ needs.check-versions.outputs.publish-create == 'true' }}
+        run: pnpm --filter @gasboost/create typecheck
+
+      - name: Test create
+        if: ${{ needs.check-versions.outputs.publish-create == 'true' }}
+        run: pnpm --filter @gasboost/create test
+
+      - name: Build create
+        if: ${{ needs.check-versions.outputs.publish-create == 'true' }}
+        run: pnpm --filter @gasboost/create build
+
+      - name: Verify create package contents
+        if: ${{ needs.check-versions.outputs.publish-create == 'true' }}
+        working-directory: packages/create-gasboost
+        run: pnpm pack
+
+      - name: Publish create
+        if: ${{ needs.check-versions.outputs.publish-create == 'true' }}
+        working-directory: packages/create-gasboost
         run: pnpm publish --access public --no-git-checks
