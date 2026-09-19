@@ -1,6 +1,6 @@
 {
   "name": "@gasboost/console",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "gasboost project lifecycle console",
   "type": "module",
   "exports": {
@@ -27,6 +27,7 @@
     "@gasboost/config": "workspace:*",
     "@gasboost/console-runtime": "workspace:*",
     "@google/clasp": "^3.4.1",
+    "firebase-tools": "15.30.2",
     "lucide": "^0.544.0",
     "zod": "^4.1.12"
   },
