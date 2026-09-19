@@ -9,7 +9,7 @@ export type FirebaseProjectState = {
 };
 
 export class FirebaseProjectRepository {
-  private readonly projectRoot: string;
+  public readonly projectRoot: string;
 
   public constructor(projectRoot: string) {
     this.projectRoot = projectRoot;

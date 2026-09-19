@@ -222,16 +222,44 @@
               <div><h3>Firebase project</h3><p class="mono-detail" id="firebase-project-detail">Checking project ID</p></div>
               <div class="badge" id="firebase-project-status">Checking</div>
             </div>
+            <div class="status-row">
+              <div class="capability-icon firebase"><i data-lucide="layout-dashboard"></i></div>
+              <div><h3>Web App</h3><p class="mono-detail" id="firebase-webapp-detail">Checking Web App</p></div>
+              <div class="badge" id="firebase-webapp-status">Checking</div>
+            </div>
+            <div class="status-row">
+              <div class="capability-icon firebase"><i data-lucide="database"></i></div>
+              <div><h3>Realtime Database</h3><p class="mono-detail" id="firebase-rtdb-detail">Checking database</p></div>
+              <div class="badge" id="firebase-rtdb-status">Checking</div>
+            </div>
+            <div class="status-row">
+              <div class="capability-icon firebase"><i data-lucide="file-code-2"></i></div>
+              <div><h3>Security Rules</h3><p class="mono-detail" id="firebase-rules-detail">Checking rules</p></div>
+              <div class="badge" id="firebase-rules-status">Checking</div>
+            </div>
           </div>
           <div class="field">
             <label for="firebase-project-id" class="field__label">Firebase Project ID <span class="required">*</span></label>
             <input id="firebase-project-id" placeholder="my-firebase-project" />
-            <p class="field__help">Connect syncs FIREBASE_PROJECT_ID to .env and .firebaserc.</p>
+            <p class="field__help">Create or connect verifies remote access, then syncs Firebase IDs to .env and .firebaserc.</p>
+          </div>
+          <div class="field">
+            <label for="firebase-webapp-name" class="field__label">Web App display name</label>
+            <input id="firebase-webapp-name" placeholder="Gasboost Web App" />
+          </div>
+          <div class="field">
+            <label for="firebase-rtdb-location" class="field__label">Realtime Database location</label>
+            <input id="firebase-rtdb-location" placeholder="us-central1" />
           </div>
           <div class="action-bar">
             <button class="command-button primary" id="firebase-enable" type="button"><i data-lucide="plus"></i>Enable Firebase</button>
             <button class="command-button" id="firebase-login" type="button"><i data-lucide="log-in"></i>Firebase login</button>
+            <button class="command-button" id="firebase-project-create" type="button"><i data-lucide="plus"></i>Create project</button>
             <button class="command-button" id="firebase-connect" type="button"><i data-lucide="database"></i>Connect project</button>
+            <button class="command-button" id="firebase-webapp-create" type="button"><i data-lucide="layout-dashboard"></i>Create Web App</button>
+            <button class="command-button" id="firebase-webapp-config" type="button"><i data-lucide="key-round"></i>Fetch SDK config</button>
+            <button class="command-button" id="firebase-rtdb-initialize" type="button"><i data-lucide="play"></i>Initialize RTDB</button>
+            <button class="command-button" id="firebase-rules-generate" type="button"><i data-lucide="file-code-2"></i>Generate rules</button>
             <button class="command-button" id="firebase-rules-deploy" type="button"><i data-lucide="upload"></i>Deploy rules</button>
             <button class="command-button" id="firebase-open" type="button"><i data-lucide="external-link"></i>Open console</button>
           </div>

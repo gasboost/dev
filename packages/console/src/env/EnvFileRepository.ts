@@ -4,12 +4,22 @@ import { join } from "node:path";
 const managedKeys = new Set([
   "GAS_SCRIPT_ID",
   "FIREBASE_PROJECT_ID",
+  "VITE_FIREBASE_API_KEY",
+  "VITE_FIREBASE_AUTH_DOMAIN",
+  "VITE_FIREBASE_DATABASE_URL",
+  "VITE_FIREBASE_PROJECT_ID",
+  "VITE_FIREBASE_APP_ID",
   "DEPLOYMENT_ID",
 ]);
 
 export type RuntimeIdentifiers = {
   readonly GAS_SCRIPT_ID?: string;
   readonly FIREBASE_PROJECT_ID?: string;
+  readonly VITE_FIREBASE_API_KEY?: string;
+  readonly VITE_FIREBASE_AUTH_DOMAIN?: string;
+  readonly VITE_FIREBASE_DATABASE_URL?: string;
+  readonly VITE_FIREBASE_PROJECT_ID?: string;
+  readonly VITE_FIREBASE_APP_ID?: string;
   readonly DEPLOYMENT_ID?: string;
 };
 

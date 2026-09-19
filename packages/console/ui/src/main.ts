@@ -45,7 +45,22 @@ type FirebaseStatus = {
   readonly configured: boolean;
   readonly authenticated: boolean;
   readonly projectId?: string;
+  readonly projectIdPresent: boolean;
+  readonly remoteProjectVerified: boolean;
+  readonly webApp: {
+    readonly configured: boolean;
+    readonly appId?: string;
+    readonly displayName?: string;
+    readonly sdkConfigAvailable: boolean;
+  };
+  readonly realtimeDatabase: {
+    readonly desired: boolean;
+    readonly initialized: boolean;
+    readonly databaseUrl?: string;
+  };
   readonly realtimeDatabaseDesired: boolean;
+  readonly rulesSourceConfigured: boolean;
+  readonly rulesGenerated: boolean;
   readonly firebaseJson: boolean;
   readonly firebaserc: boolean;
 };
@@ -121,7 +136,12 @@ const developmentOpen = required<HTMLButtonElement>("development-open");
 
 const firebaseEnable = required<HTMLButtonElement>("firebase-enable");
 const firebaseLogin = required<HTMLButtonElement>("firebase-login");
+const firebaseProjectCreate = required<HTMLButtonElement>("firebase-project-create");
 const firebaseConnect = required<HTMLButtonElement>("firebase-connect");
+const firebaseWebAppCreate = required<HTMLButtonElement>("firebase-webapp-create");
+const firebaseWebAppConfig = required<HTMLButtonElement>("firebase-webapp-config");
+const firebaseRtdbInitialize = required<HTMLButtonElement>("firebase-rtdb-initialize");
+const firebaseRulesGenerate = required<HTMLButtonElement>("firebase-rules-generate");
 const firebaseRulesDeploy = required<HTMLButtonElement>("firebase-rules-deploy");
 const firebaseOpen = required<HTMLButtonElement>("firebase-open");
 
@@ -238,10 +258,28 @@ firebaseEnable.addEventListener("click", () =>
 firebaseLogin.addEventListener("click", () =>
   void runOperation("firebase.login", {}, firebaseLog, renderFirebaseStatus, [firebaseLogin]),
 );
+firebaseProjectCreate.addEventListener("click", () => {
+  const projectId = required<HTMLInputElement>("firebase-project-id").value.trim();
+  void runOperation("firebase.project.create", { projectId }, firebaseLog, renderFirebaseStatus, [firebaseProjectCreate]);
+});
 firebaseConnect.addEventListener("click", () => {
   const projectId = required<HTMLInputElement>("firebase-project-id").value.trim();
-  void runOperation("firebase.connect", { projectId }, firebaseLog, renderFirebaseStatus, [firebaseConnect]);
+  void runOperation("firebase.project.connect", { projectId }, firebaseLog, renderFirebaseStatus, [firebaseConnect]);
 });
+firebaseWebAppCreate.addEventListener("click", () => {
+  const displayName = required<HTMLInputElement>("firebase-webapp-name").value.trim() || undefined;
+  void runOperation("firebase.webapp.create", { displayName }, firebaseLog, renderFirebaseStatus, [firebaseWebAppCreate]);
+});
+firebaseWebAppConfig.addEventListener("click", () =>
+  void runOperation("firebase.webapp.config", {}, firebaseLog, () => void refreshFirebaseStatus(), [firebaseWebAppConfig]),
+);
+firebaseRtdbInitialize.addEventListener("click", () => {
+  const location = required<HTMLInputElement>("firebase-rtdb-location").value.trim() || "us-central1";
+  void runOperation("firebase.rtdb.initialize", { location }, firebaseLog, renderFirebaseStatus, [firebaseRtdbInitialize]);
+});
+firebaseRulesGenerate.addEventListener("click", () =>
+  void runOperation("firebase.rules.generate", {}, firebaseLog, () => void refreshFirebaseStatus(), [firebaseRulesGenerate]),
+);
 firebaseRulesDeploy.addEventListener("click", () =>
   void runOperation("firebase.rules.deploy", {}, firebaseLog, () => void refreshFirebaseStatus(), [firebaseRulesDeploy]),
 );
@@ -474,7 +512,10 @@ function renderFirebaseStatus(status: FirebaseStatus): void {
   firebaseStatus = status;
   setStatusBadge("firebase-enabled-status", status.enabled, "Enabled", "Not enabled");
   setStatusBadge("firebase-auth-status", status.authenticated, "Authorized", "Sign in required");
-  setStatusBadge("firebase-project-status", status.configured, "Connected", "Not connected");
+  setStatusBadge("firebase-project-status", status.remoteProjectVerified, "Verified", "Not verified");
+  setStatusBadge("firebase-webapp-status", status.webApp.configured, "Configured", "Not configured");
+  setStatusBadge("firebase-rtdb-status", status.realtimeDatabase.initialized, "Initialized", "Not initialized");
+  setStatusBadge("firebase-rules-status", status.rulesGenerated, "Generated", "Not generated");
   required("firebase-enabled-detail").textContent = status.enabled
     ? "Local Firebase configuration detected"
     : "Enable Firebase to create local configuration";
@@ -482,8 +523,22 @@ function renderFirebaseStatus(status: FirebaseStatus): void {
     ? "Firebase CLI authorization available"
     : "No Firebase CLI authorization found";
   required("firebase-project-detail").textContent =
-    status.projectId === undefined ? "No project ID synced to .env" : status.projectId;
+    status.projectId === undefined
+      ? "No project ID synced to .env"
+      : `${status.projectId}${status.remoteProjectVerified ? "" : " · remote verification pending"}`;
+  required("firebase-webapp-detail").textContent =
+    status.webApp.appId ??
+    (status.webApp.sdkConfigAvailable ? "SDK config synced to .env" : "No Web App detected");
+  required("firebase-rtdb-detail").textContent =
+    status.realtimeDatabase.databaseUrl ??
+    (status.realtimeDatabase.desired ? "Realtime capability desired" : "Realtime capability not configured");
+  required("firebase-rules-detail").textContent = status.rulesSourceConfigured
+    ? status.rulesGenerated
+      ? "database.rules.json is ready"
+      : "Generate rules before deploy"
+    : "No RTDB rules source configured";
   required<HTMLInputElement>("firebase-project-id").value = status.projectId ?? "";
+  required<HTMLInputElement>("firebase-webapp-name").value = status.webApp.displayName ?? "";
   updateActions();
 }
 
@@ -539,8 +594,19 @@ function updateActions(): void {
   developmentOpen.disabled = developmentStatus?.running !== true || developmentStatus.localUrl === undefined;
   firebaseLogin.disabled = firebaseStatus?.authenticated === true;
   firebaseEnable.disabled = firebaseStatus?.enabled === true;
-  firebaseConnect.disabled = false;
-  firebaseRulesDeploy.disabled = firebaseStatus?.configured !== true;
+  const firebaseAuthenticated = firebaseStatus?.authenticated === true;
+  const firebaseRemoteProject = firebaseStatus?.remoteProjectVerified === true;
+  const firebaseProjectInput = required<HTMLInputElement>("firebase-project-id").value.trim();
+  firebaseProjectCreate.disabled = !firebaseAuthenticated || firebaseProjectInput.length === 0;
+  firebaseConnect.disabled = !firebaseAuthenticated || firebaseProjectInput.length === 0;
+  firebaseWebAppCreate.disabled = !firebaseRemoteProject || firebaseStatus?.webApp.configured === true;
+  firebaseWebAppConfig.disabled = !firebaseRemoteProject || firebaseStatus?.webApp.configured !== true;
+  firebaseRtdbInitialize.disabled =
+    !firebaseRemoteProject ||
+    firebaseStatus?.realtimeDatabase.desired !== true ||
+    firebaseStatus?.realtimeDatabase.initialized === true;
+  firebaseRulesGenerate.disabled = firebaseStatus?.rulesSourceConfigured !== true;
+  firebaseRulesDeploy.disabled = !firebaseRemoteProject || firebaseStatus?.rulesGenerated !== true;
   firebaseOpen.disabled = false;
   refreshButton.disabled = false;
   for (const button of Object.values(navButtons)) button.disabled = false;
