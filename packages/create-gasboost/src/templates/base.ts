@@ -36,8 +36,7 @@ export function baseFragment(
     },
 
     scripts: {
-      dev: "pnpm dev:vite",
-      "dev:vite": "vite",
+      dev: "vite",
       console: "gasboost console open",
       clean:
         "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
@@ -84,16 +83,26 @@ function renderBackendMain(capabilities: CapabilitySelection): string {
   }
 
   /*
-   * Auth handlers must be registered before authentication middleware.
+   * Authentication handlers and the starter hello RPC are public.
+   *
    * AppsScript captures the active middleware set when each handler is
-   * registered, so sign-in/sign-up handlers remain public while later
-   * application handlers receive authentication middleware.
+   * registered, so handlers registered before authentication() do not
+   * require a session token.
    */
   if (capabilities.authentication) {
-    chain.push("  .calls(handlers(auth))", "  .use(authentication(auth))");
+    chain.push("  .calls(handlers(auth))");
   }
 
-  chain.push('  .call("hello", () => ({ message: "Hello from gasboost" }));');
+  chain.push('  .call("hello", () => ({ message: "Hello from gasboost" }))');
+
+  /*
+   * Application RPC handlers added after this point are authenticated.
+   */
+  if (capabilities.authentication) {
+    chain.push("  .use(authentication(auth))");
+  }
+
+  chain.push(";");
 
   return `${imports.join("\n")}
 

@@ -93,8 +93,42 @@ const passwordResetTable = new SheetTable({
 } from "@gasboost/sheetorm";
 ${sharedImport}
 
-export const spreadsheetId =
-  SpreadsheetApp.getActive().getId();
+function resolveSpreadsheetId(): string {
+  const configuredSpreadsheetId =
+    PropertiesService
+      .getScriptProperties()
+      .getProperty("GASBOOST_SPREADSHEET_ID");
+
+  if (
+    configuredSpreadsheetId !== null &&
+    configuredSpreadsheetId.length > 0
+  ) {
+    return configuredSpreadsheetId;
+  }
+
+  /*
+   * Container-bound Apps Script projects may use their active
+   * spreadsheet. The local SpreadsheetAppStub also provides a fixed
+   * active spreadsheet ID, which keeps local development zero-config.
+   */
+  const activeSpreadsheetId =
+    SpreadsheetApp.getActive()?.getId();
+
+  if (
+    activeSpreadsheetId !== undefined &&
+    activeSpreadsheetId !== null &&
+    activeSpreadsheetId.length > 0
+  ) {
+    return activeSpreadsheetId;
+  }
+
+  throw new Error(
+    "Spreadsheet ID is not configured. " +
+      "Set GASBOOST_SPREADSHEET_ID in Apps Script Script Properties.",
+  );
+}
+
+export const spreadsheetId = resolveSpreadsheetId();
 
 const itemsSheetTable = new SheetTable({
   ...itemsTable,

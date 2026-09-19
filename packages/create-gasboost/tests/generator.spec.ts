@@ -77,7 +77,7 @@ function assertPackageScripts(
 ): void {
   const packageJson = packageFile(files);
 
-  expect(packageJson.scripts["dev:vite"]).toBe("vite");
+  expect(packageJson.scripts.dev).toBe("vite");
 
   expect(packageJson.scripts.console).toBe("gasboost console open");
 
@@ -138,6 +138,14 @@ function assertDatabase(
     expect(viteConfig).toContain("SpreadsheetAppStub");
 
     expect(viteConfig).toContain("SheetsStub");
+
+    const db = requiredFile(files, "src/backend/lib/db.ts");
+
+    expect(db).toContain('getProperty("GASBOOST_SPREADSHEET_ID")');
+
+    expect(db).toContain("function resolveSpreadsheetId()");
+
+    expect(db).toContain("SpreadsheetApp.getActive()?.getId()");
   } else {
     expect(packageJson.dependencies["@gasboost/sheetorm"]).toBeUndefined();
 
@@ -174,20 +182,28 @@ function assertAuthentication(
   const tables = requiredFile(files, "src/shared/tables.ts");
 
   expect(tables).toContain("createAuthTables");
-
   expect(tables).toContain("export const authTables");
 
   const main = requiredFile(files, "src/backend/main.ts");
 
   const handlersIndex = main.indexOf(".calls(handlers(auth))");
 
-  const middlewareIndex = main.indexOf(".use(authentication(auth))");
-
   const helloIndex = main.indexOf('.call("hello"');
 
+  const middlewareIndex = main.indexOf(".use(authentication(auth))");
+
   expect(handlersIndex).toBeGreaterThan(-1);
-  expect(middlewareIndex).toBeGreaterThan(handlersIndex);
-  expect(helloIndex).toBeGreaterThan(middlewareIndex);
+
+  /*
+   * Authentication handlers and hello are public.
+   */
+  expect(helloIndex).toBeGreaterThan(handlersIndex);
+
+  /*
+   * Only handlers registered after authentication()
+   * should require a session token.
+   */
+  expect(middlewareIndex).toBeGreaterThan(helloIndex);
 }
 
 function assertFrontend(
@@ -222,6 +238,10 @@ function assertFrontend(
   expect(packageJson.dependencies["@gasboost/react"]).toBeUndefined();
 
   expect(packageJson.devDependencies["@gasboost/react"]).toBeUndefined();
+
+  const app = requiredFile(files, "src/frontend/App.tsx");
+
+  expect(app).toContain("await client.hello()");
 }
 
 function assertRealtime(
@@ -272,10 +292,6 @@ function assertRealtime(
 
   const replica = requiredFile(files, "src/frontend/lib/replica.ts");
 
-  /*
-   * Authentication storage must never become part of the
-   * browser-visible RTDB/Replica dataset.
-   */
   expect(rtdb).not.toContain("authTables");
   expect(replica).not.toContain("authTables");
 
@@ -300,6 +316,7 @@ function assertNoLegacyStarterContent(
 
   expect(contents).not.toContain("AKfy");
   expect(contents).not.toContain("AIzaSy");
+
   expect(contents).not.toContain("create-gasboost.firebaseapp.com");
 }
 
@@ -324,7 +341,9 @@ function requiredFile(
 
 type GeneratedPackageJson = {
   readonly scripts: Record<string, string | undefined>;
+
   readonly dependencies: Record<string, string | undefined>;
+
   readonly devDependencies: Record<string, string | undefined>;
 };
 
