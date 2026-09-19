@@ -88,6 +88,62 @@ describe("Apps Script operations", () => {
     ).resolves.toMatchObject({ rootDir: "dist", manifestExists: true });
   });
 
+  it("root appsscript.jsonのdeployment configをstatusに反映する", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, "appsscript.json"),
+      JSON.stringify({
+        executionApi: { access: "ANYONE_ANONYMOUS" },
+        runtimeVersion: "V8",
+      }),
+      "utf8",
+    );
+    const operations = createAppsScriptOperations({
+      projectRoot,
+      config: { type: "webapp" },
+      clasp: {
+        run: vi.fn(async () => ({ exitCode: 0, stdout: "{}", stderr: "" })),
+      },
+    });
+
+    await expect(
+      operationById(operations, "apps.status").handler({}, context()),
+    ).resolves.toMatchObject({
+      deploymentConfigurationSource: "manifest",
+      deploymentConfiguration: {
+        type: "executionApi",
+        access: "ANYONE_ANONYMOUS",
+      },
+    });
+  });
+
+  it("manifestにdeployment configがない場合はgasboost configを初期値にする", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, "appsscript.json"),
+      JSON.stringify({ runtimeVersion: "V8" }),
+      "utf8",
+    );
+    const operations = createAppsScriptOperations({
+      projectRoot,
+      config: { type: "webapp" },
+      clasp: {
+        run: vi.fn(async () => ({ exitCode: 0, stdout: "{}", stderr: "" })),
+      },
+    });
+
+    await expect(
+      operationById(operations, "apps.status").handler({}, context()),
+    ).resolves.toMatchObject({
+      deploymentConfigurationSource: "default",
+      deploymentConfiguration: {
+        type: "webapp",
+        access: "ANYONE",
+        executeAs: "USER_DEPLOYING",
+      },
+    });
+  });
+
   it("rootDir配下だけにmanifestがあってもsource manifestとしては検出しない", async () => {
     const projectRoot = await createProject();
     await mkdir(join(projectRoot, "dist"));
@@ -316,6 +372,118 @@ describe("Apps Script operations", () => {
     expect(run).toHaveBeenCalledWith(["create-deployment"], expect.any(Function));
   });
 
+  it("structured inputだけでWeb App deployment configをappsscript.jsonに保存する", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, "appsscript.json"),
+      JSON.stringify({
+        timeZone: "Asia/Tokyo",
+        dependencies: {
+          enabledAdvancedServices: [
+            {
+              userSymbol: "Sheets",
+              version: "v4",
+              serviceId: "sheets",
+            },
+          ],
+        },
+        executionApi: { access: "MYSELF" },
+        runtimeVersion: "V8",
+      }),
+      "utf8",
+    );
+    const operation = operationById(
+      createAppsScriptOperations({
+        projectRoot,
+        config: { type: "webapp" },
+        clasp: {
+          run: vi.fn(async () => ({ exitCode: 0, stdout: "{}", stderr: "" })),
+        },
+      }),
+      "apps.deployment.configuration.update",
+    );
+
+    expect(
+      operation.input.safeParse({
+        type: "webapp",
+        access: "ANYONE",
+        executeAs: "USER_DEPLOYING",
+      }).success,
+    ).toBe(true);
+    expect(
+      operation.input.safeParse({
+        type: "webapp",
+        access: "ANYONE",
+        executeAs: "USER_DEPLOYING",
+        manifest: {},
+      }).success,
+    ).toBe(false);
+    await operation.handler(
+      {
+        type: "webapp",
+        access: "ANYONE",
+        executeAs: "USER_DEPLOYING",
+      },
+      context(),
+    );
+
+    const manifest = JSON.parse(
+      await readFile(join(projectRoot, "appsscript.json"), "utf8"),
+    ) as Record<string, unknown>;
+    expect(manifest).toEqual({
+      timeZone: "Asia/Tokyo",
+      dependencies: {
+        enabledAdvancedServices: [
+          {
+            userSymbol: "Sheets",
+            version: "v4",
+            serviceId: "sheets",
+          },
+        ],
+      },
+      runtimeVersion: "V8",
+      webapp: {
+        access: "ANYONE",
+        executeAs: "USER_DEPLOYING",
+      },
+    });
+  });
+
+  it("API Executableへ切り替えるとwebapp fieldを削除してexecutionApiを保存する", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, "appsscript.json"),
+      JSON.stringify({
+        webapp: { access: "ANYONE", executeAs: "USER_DEPLOYING" },
+        oauthScopes: ["https://www.googleapis.com/auth/spreadsheets"],
+      }),
+      "utf8",
+    );
+    const operation = operationById(
+      createAppsScriptOperations({
+        projectRoot,
+        config: { type: "webapp" },
+        clasp: {
+          run: vi.fn(async () => ({ exitCode: 0, stdout: "{}", stderr: "" })),
+        },
+      }),
+      "apps.deployment.configuration.update",
+    );
+
+    await operation.handler(
+      { type: "executionApi", access: "DOMAIN" },
+      context(),
+    );
+
+    const manifest = JSON.parse(
+      await readFile(join(projectRoot, "appsscript.json"), "utf8"),
+    ) as Record<string, unknown>;
+    expect(manifest).toEqual({
+      oauthScopes: ["https://www.googleapis.com/auth/spreadsheets"],
+      executionApi: { access: "DOMAIN" },
+    });
+  });
+
   it("deployment updateはclasp 3.4.1の位置引数でdeployment IDを渡す", async () => {
     const projectRoot = await createProject();
     await writeFile(
@@ -340,6 +508,34 @@ describe("Apps Script operations", () => {
       ["update-deployment", "--deploymentId", "dep-123"],
       expect.any(Function),
     );
+  });
+
+  it("deployment create/updateにはbuildやpushを追加しない", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123" }),
+      "utf8",
+    );
+    const build = vi.fn(async () => ({ exitCode: 0, stdout: "built", stderr: "" }));
+    const run = vi.fn(async () => ({ exitCode: 0, stdout: "Deployment ID: dep-123", stderr: "" }));
+    const operations = createAppsScriptOperations({
+      projectRoot,
+      config: { type: "webapp" },
+      clasp: { run },
+      build: { run: build },
+    });
+
+    await operationById(operations, "apps.deployment.create").handler({}, context());
+    await operationById(operations, "apps.deployment.update").handler(
+      { deploymentId: "dep-123" },
+      context(),
+    );
+
+    expect(build).not.toHaveBeenCalled();
+    expect(run).toHaveBeenNthCalledWith(1, ["create-deployment"], expect.any(Function));
+    expect(run).toHaveBeenNthCalledWith(2, ["update-deployment", "dep-123"], expect.any(Function));
+    expect(run).not.toHaveBeenCalledWith(["push", "--force"], expect.any(Function));
   });
 
   it("壊れた.clasp.jsonを未作成として上書きしない", async () => {

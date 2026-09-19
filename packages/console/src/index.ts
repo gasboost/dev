@@ -8,6 +8,12 @@ export {
   type AppsScriptStatus,
 } from "./appsScript/appsScriptOperations.js";
 export {
+  type DeploymentAccess,
+  type DeploymentConfiguration,
+  type DeploymentType,
+  type WebAppExecuteAs,
+} from "./appsScript/AppsScriptManifestRepository.js";
+export {
   createClaspRunner,
   type ClaspResult,
   type ClaspRunner,

@@ -196,6 +196,37 @@
               <div><h3>Deployment ID</h3><p class="mono-detail" id="deployment-id-detail">Checking .env</p></div>
               <div class="badge" id="deployment-id-status">Checking</div>
             </div>
+            <div class="status-row">
+              <div class="capability-icon apps"><i data-lucide="file-code-2"></i></div>
+              <div><h3>Manifest status</h3><p class="mono-detail" id="deployment-manifest-detail">Checking appsscript.json</p></div>
+              <div class="badge" id="deployment-manifest-status">Checking</div>
+            </div>
+          </div>
+          <div class="deployment-config">
+            <div class="field">
+              <label for="deployment-type" class="field__label">Deployment type</label>
+              <select id="deployment-type">
+                <option value="webapp">Web App</option>
+                <option value="executionApi">API Executable</option>
+              </select>
+            </div>
+            <div class="field" id="deployment-execute-as-field">
+              <label for="deployment-execute-as" class="field__label">Execute as</label>
+              <select id="deployment-execute-as">
+                <option value="USER_DEPLOYING">Me</option>
+                <option value="USER_ACCESSING">User accessing the web app</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="deployment-access" class="field__label">Access</label>
+              <select id="deployment-access">
+                <option value="MYSELF">Only myself</option>
+                <option value="DOMAIN">Same domain</option>
+                <option value="ANYONE">Anyone</option>
+                <option value="ANYONE_ANONYMOUS">Anyone, even anonymous</option>
+              </select>
+              <p class="field__help" id="deployment-config-help">Changes are saved to appsscript.json. Push publishes the manifest to Apps Script.</p>
+            </div>
           </div>
           <div class="field">
             <label for="deployment-id" class="field__label">Deployment ID</label>
