@@ -1,14 +1,37 @@
 # @gasboost/cli
 
-Gasboost エコシステム共通の開発CLIです。
+Developer-facing command entry point for the gasboost ecosystem.
+
+Install:
 
 ```bash
 pnpm add -D @gasboost/cli
 ```
 
-## Project Console
+The CLI coordinates developer tooling around a gasboost project.
 
-プロジェクトの `package.json` に Console script を追加します。
+Its responsibilities include:
+
+- command routing
+- loading project configuration
+- opening the gasboost console
+- loading application TypeScript modules
+- generating RTDB Security Rules
+- filesystem output
+- diagnostics
+- process exit status
+
+## Commands
+
+### Project Console
+
+Open the local project console:
+
+```bash
+gasboost console open
+```
+
+Generated projects normally expose:
 
 ```json
 {
@@ -18,28 +41,42 @@ pnpm add -D @gasboost/cli
 }
 ```
 
-次のコマンドでローカルConsoleを開きます。
+so the console can be opened with:
 
 ```bash
 pnpm console
 ```
 
-自動でBrowserを開かずに起動する場合は `gasboost console open --no-browser` を使用できます。
+To avoid automatically opening the browser:
 
-ConsoleのBrowser UIから実行できるのは、登録済みoperationと各operationのschemaを満たすstructured inputだけです。
+```bash
+gasboost console open --no-browser
+```
 
-`appsScript` capabilityを設定したプロジェクトでは、Google認証、Apps Script project作成、editor表示、local filesのpushをConsoleから実行できます。
+The browser UI itself is implemented by `@gasboost/console`.
 
-## RTDB Security Rules
+The CLI is responsible for starting it and connecting it to the current project.
 
-`@gasboost/realtime-firebase` で定義した Firebase Realtime Database の Security Rules を生成できます。
+Console operations are registered operations with structured input. The browser is not given an arbitrary local shell endpoint.
 
-### Config
+### RTDB Security Rules
 
-プロジェクトルートに `gasboost.config.ts` を作成します。
+Generate Firebase Realtime Database Security Rules:
+
+```bash
+gasboost rtdb rules
+```
+
+Configuration is read from:
+
+```text
+gasboost.config.ts
+```
+
+Canonical configuration:
 
 ```ts
-import { defineGasboostConfig } from "@gasboost/cli";
+import { defineGasboostConfig } from "@gasboost/config";
 
 export default defineGasboostConfig({
   firebase: {
@@ -51,22 +88,64 @@ export default defineGasboostConfig({
 });
 ```
 
-従来の `rtdb: { source, out }` 形式も互換性のため読み込めますが、
-新しい設定では `firebase.realtimeDatabase` を使用してください。
+The legacy:
 
-### RTDB definition
+```ts
+rtdb: {
+  source: "...",
+  out: "...",
+}
+```
 
-`source` で指定した module は `rtdb` を named export します。
+shape is normalized for compatibility, but new projects should use:
+
+```text
+firebase.realtimeDatabase
+```
+
+## Project Configuration
+
+`gasboost.config.ts` is loaded through `@gasboost/config`.
+
+It represents the gasboost Project Definition / Desired State rather than CLI-specific preferences.
+
+```text
+gasboost.config.ts
+        ↓
+@gasboost/config
+        ↓
+@gasboost/cli
+```
+
+The canonical config API is:
+
+```ts
+import { defineGasboostConfig } from "@gasboost/config";
+```
+
+`@gasboost/cli` also re-exports config types for compatibility, but project documentation should use `@gasboost/config` directly.
+
+## RTDB Definition
+
+The module configured by:
+
+```text
+firebase.realtimeDatabase.source
+```
+
+must export `rtdb`.
+
+For example:
 
 ```ts
 import { FirebaseRtdb } from "@gasboost/realtime-firebase";
-import { deals } from "@/database/deals";
-import { dealSecurity } from "@/security/dealSecurity";
+import { itemsTable } from "../../shared/tables";
+import { itemsRls } from "./rls";
 
 export const rtdb = FirebaseRtdb.generate({
-  tables: [deals] as const,
+  tables: [itemsTable] as const,
 
-  rowLevelSecurity: [dealSecurity],
+  rowLevelSecurity: [itemsRls],
 
   principal: {
     userId: "auth.uid",
@@ -74,40 +153,27 @@ export const rtdb = FirebaseRtdb.generate({
 });
 ```
 
-CLI はこの module を実行し、export された `rtdb` の `rules()` を呼び出します。
+The CLI loads the module and invokes:
 
-### Generate
-
-```bash
-gasboost console open [--no-browser]
-gasboost rtdb rules
+```text
+rtdb.rules()
 ```
 
-成功すると、設定した `out` へ Security Rules が出力されます。
+The resulting rules are written to the configured output.
+
+For example:
 
 ```text
 database.rules.json
 ```
 
-例:
+## TypeScript Module Loading
 
-```json
-{
-  "rules": {
-    "deals": {
-      "...": "..."
-    }
-  }
-}
-```
+The CLI uses `jiti` to load application TypeScript modules.
 
-## TypeScript module loading
+This allows project modules to use the project's normal TypeScript configuration, including path aliases.
 
-Gasboost CLI は application source の読み込みに `jiti` を利用します。
-
-そのため、通常の Node.js native TypeScript execution に限定されず、プロジェクトの `tsconfig.json` に設定された `paths` も利用できます。
-
-例えば次のような設定に対応します。
+Example:
 
 ```json
 {
@@ -120,49 +186,24 @@ Gasboost CLI は application source の読み込みに `jiti` を利用します
 }
 ```
 
-application source 側では通常どおり利用できます。
+Application code can continue to use:
 
 ```ts
-import { deals } from "@/database/deals";
+import { something } from "@/something";
 ```
 
-Gasboost CLI を利用するためだけに import path を書き換える必要はありません。
+The application does not need to rewrite imports just for gasboost CLI execution.
 
-## Architecture
+## Responsibility Boundaries
 
-```text
-gasboost.config.ts
-        │
-        ▼
-@gasboost/config
-        │
-        ▼
-loadGasboostConfig
-      jiti
-        │
-        ▼
-rtdb.source
-        │
-        ▼
-export const rtdb
-        │
-        ▼
-rtdb.rules()
-        │
-        ▼
-RtdbRulesWriter
-        │
-        ▼
-database.rules.json
-```
+`@gasboost/cli` does not implement Firebase authorization compilation or the console UI itself.
 
-`@gasboost/cli` は RLS や Firebase Security Rules のコンパイル処理を実装しません。
-
-それらの責務は `@gasboost/realtime-firebase` にあります。
+For RTDB rules:
 
 ```text
 @gasboost/realtime-firebase
-  ├─ RLS -> authorization layout
+  ├─ RLS projection
+  ├─ authorization layout
   ├─ runtime path generation
   ├─ projectability validation
   └─ Security Rules generation
@@ -176,15 +217,21 @@ database.rules.json
   └─ exit code
 ```
 
-## Commands
+For the project console:
 
-```bash
-gasboost rtdb rules
+```text
+@gasboost/cli
+  ↓
+start / route command
+
+@gasboost/console
+  ↓
+gasboost-specific lifecycle UI + operations
+
+@gasboost/console-runtime
+  ↓
+generic localhost operation runtime
 ```
-
-現時点ではRTDB Security Rules生成のみを提供します。
-
-今後、Gasboostエコシステム共通のdeveloper toolingを追加していきます。
 
 ## Requirements
 
