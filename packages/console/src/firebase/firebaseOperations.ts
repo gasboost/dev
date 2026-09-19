@@ -56,7 +56,7 @@ const sdkConfigInput = z
   .strict();
 const rtdbInitializeInput = z
   .object({
-    location: z.string().trim().min(2).max(40).default("us-central1"),
+    location: z.enum(["us-central1", "europe-west1", "asia-southeast1"]).default("us-central1"),
   })
   .strict();
 
@@ -229,20 +229,15 @@ export function createFirebaseOperations({
       async handler(input, context) {
         const projectId = await requireProjectId({ projectRepository, envRepository });
         context.progress({ message: "Initializing Realtime Database", percentage: 25 });
-        const result = await firebase.run(
-          [
-            "database:instances:create",
-            projectId,
-            "--location",
-            input.location,
-            "--project",
-            projectId,
-            "--json",
-          ],
-          context.log,
-        );
-        assertFirebaseSuccess("Firebase RTDB initialize", result);
-        return status();
+        const before = await getRealtimeDatabaseStatus(firebase, projectId, config);
+        if (!before.initialized) {
+          await firebase.initializeDefaultDatabase(projectId, input.location);
+        }
+        const after = await status();
+        if (!after.realtimeDatabase.initialized) {
+          throw new Error("Firebase RTDB initialization could not be verified.");
+        }
+        return after;
       },
     },
     {

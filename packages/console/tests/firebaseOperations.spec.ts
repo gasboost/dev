@@ -33,7 +33,7 @@ describe("Firebase operations", () => {
       createFirebaseOperations({
         projectRoot,
         config: {},
-        firebase: { run },
+        firebase: { run, initializeDefaultDatabase: vi.fn() },
       }),
       "firebase.connect",
     );
@@ -66,6 +66,7 @@ describe("Firebase operations", () => {
         projectRoot,
         config: {},
         firebase: {
+          initializeDefaultDatabase: vi.fn(),
           run: firebaseRun({
             "projects:list --json": {
               result: [{ projectId: "new-project" }],
@@ -94,6 +95,7 @@ describe("Firebase operations", () => {
         projectRoot,
         config: {},
         firebase: {
+          initializeDefaultDatabase: vi.fn(),
           run: firebaseRun({
             "projects:list --json": {
               result: [{ projectId: "other-project" }],
@@ -127,6 +129,7 @@ describe("Firebase operations", () => {
         projectRoot,
         config: {},
         firebase: {
+          initializeDefaultDatabase: vi.fn(),
           run: firebaseRun({
             "apps:list WEB --project my-project --json": {
               result: [{ appId: "1:123:web:abc", displayName: "Web" }],
@@ -157,6 +160,34 @@ describe("Firebase operations", () => {
     await expect(readFile(join(projectRoot, ".env"), "utf8")).resolves.toContain(
       "VITE_FIREBASE_APP_ID=1:123:web:abc",
     );
+  });
+
+  it("initializes the first default RTDB instance and verifies remote status", async () => {
+    const projectRoot = await createProject();
+    await writeFile(join(projectRoot, ".firebaserc"), JSON.stringify({ projects: { default: "my-project" } }));
+    let created = false;
+    const initializeDefaultDatabase = vi.fn(async () => { created = true; });
+    const run = vi.fn(async (args: readonly string[]) => ({
+      exitCode: 0,
+      stdout: JSON.stringify(
+        args[0] === "database:instances:list"
+          ? { result: created ? [{ name: "my-project-default-rtdb", databaseUrl: "https://my-project-default-rtdb.firebaseio.com" }] : [] }
+          : args[0] === "projects:list"
+            ? { result: [{ projectId: "my-project" }] }
+            : {},
+      ),
+      stderr: "",
+    }));
+    const operation = operationById(createFirebaseOperations({
+      projectRoot,
+      config: { firebase: { realtimeDatabase: { out: "database.rules.json" } } } as Parameters<typeof createFirebaseOperations>[0]["config"],
+      firebase: { run, initializeDefaultDatabase },
+    }), "firebase.rtdb.initialize");
+
+    const result = await operation.handler({ location: "us-central1" }, context()) as { realtimeDatabase: { initialized: boolean } };
+
+    expect(initializeDefaultDatabase).toHaveBeenCalledWith("my-project", "us-central1");
+    expect(result.realtimeDatabase.initialized).toBe(true);
   });
 });
 
