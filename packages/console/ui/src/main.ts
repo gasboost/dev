@@ -17,6 +17,10 @@ import {
   X,
 } from "lucide";
 import { installDialogControls } from "./dialogControls";
+import {
+  installFirebaseProjectActionRefresh,
+  syncFirebaseProjectActions,
+} from "./firebaseProjectActions";
 import "./style.css";
 
 type View = "overview" | "development" | "apps-script" | "deployment" | "firebase";
@@ -136,6 +140,7 @@ const developmentOpen = required<HTMLButtonElement>("development-open");
 
 const firebaseEnable = required<HTMLButtonElement>("firebase-enable");
 const firebaseLogin = required<HTMLButtonElement>("firebase-login");
+const firebaseProjectId = required<HTMLInputElement>("firebase-project-id");
 const firebaseProjectCreate = required<HTMLButtonElement>("firebase-project-create");
 const firebaseConnect = required<HTMLButtonElement>("firebase-connect");
 const firebaseWebAppCreate = required<HTMLButtonElement>("firebase-webapp-create");
@@ -258,12 +263,13 @@ firebaseEnable.addEventListener("click", () =>
 firebaseLogin.addEventListener("click", () =>
   void runOperation("firebase.login", {}, firebaseLog, renderFirebaseStatus, [firebaseLogin]),
 );
+installFirebaseProjectActionRefresh(firebaseProjectId, updateActions);
 firebaseProjectCreate.addEventListener("click", () => {
-  const projectId = required<HTMLInputElement>("firebase-project-id").value.trim();
+  const projectId = firebaseProjectId.value.trim();
   void runOperation("firebase.project.create", { projectId }, firebaseLog, renderFirebaseStatus, [firebaseProjectCreate]);
 });
 firebaseConnect.addEventListener("click", () => {
-  const projectId = required<HTMLInputElement>("firebase-project-id").value.trim();
+  const projectId = firebaseProjectId.value.trim();
   void runOperation("firebase.project.connect", { projectId }, firebaseLog, renderFirebaseStatus, [firebaseConnect]);
 });
 firebaseWebAppCreate.addEventListener("click", () => {
@@ -537,7 +543,7 @@ function renderFirebaseStatus(status: FirebaseStatus): void {
       ? "database.rules.json is ready"
       : "Generate rules before deploy"
     : "No RTDB rules source configured";
-  required<HTMLInputElement>("firebase-project-id").value = status.projectId ?? "";
+  firebaseProjectId.value = status.projectId ?? "";
   required<HTMLInputElement>("firebase-webapp-name").value = status.webApp.displayName ?? "";
   updateActions();
 }
@@ -594,11 +600,8 @@ function updateActions(): void {
   developmentOpen.disabled = developmentStatus?.running !== true || developmentStatus.localUrl === undefined;
   firebaseLogin.disabled = firebaseStatus?.authenticated === true;
   firebaseEnable.disabled = firebaseStatus?.enabled === true;
-  const firebaseAuthenticated = firebaseStatus?.authenticated === true;
   const firebaseRemoteProject = firebaseStatus?.remoteProjectVerified === true;
-  const firebaseProjectInput = required<HTMLInputElement>("firebase-project-id").value.trim();
-  firebaseProjectCreate.disabled = !firebaseAuthenticated || firebaseProjectInput.length === 0;
-  firebaseConnect.disabled = !firebaseAuthenticated || firebaseProjectInput.length === 0;
+  syncFirebaseProjectActions(firebaseStatus, firebaseProjectId, firebaseProjectCreate, firebaseConnect);
   firebaseWebAppCreate.disabled = !firebaseRemoteProject || firebaseStatus?.webApp.configured === true;
   firebaseWebAppConfig.disabled = !firebaseRemoteProject || firebaseStatus?.webApp.configured !== true;
   firebaseRtdbInitialize.disabled =
