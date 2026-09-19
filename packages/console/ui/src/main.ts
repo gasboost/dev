@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide";
 import { installDialogControls } from "./dialogControls";
+import { deployedWebAppUrl, syncDeploymentOpenAction } from "./deploymentOpenAction";
 import {
   installFirebaseProjectActionRefresh,
   syncFirebaseProjectActions,
@@ -281,9 +282,13 @@ deploymentUpdate.addEventListener("click", () =>
 );
 deploymentOpen.addEventListener("click", () => {
   const id = appsScriptStatus?.deploymentId ?? required<HTMLInputElement>("deployment-id").value.trim();
-  if (id.length > 0) window.open(`https://script.google.com/macros/s/${id}/exec`, "_blank", "noopener");
+  const url = deployedWebAppUrl(openDeploymentType(), id);
+  if (url !== undefined) window.open(url, "_blank", "noopener");
 });
-deploymentType.addEventListener("change", () => void saveDeploymentConfiguration());
+deploymentType.addEventListener("change", () => {
+  updateActions();
+  void saveDeploymentConfiguration();
+});
 deploymentAccess.addEventListener("change", () => void saveDeploymentConfiguration());
 deploymentExecuteAs.addEventListener("change", () => void saveDeploymentConfiguration());
 
@@ -636,7 +641,11 @@ function updateActions(): void {
   deploymentList.disabled = !authenticated || !configured;
   deploymentCreate.disabled = !authenticated || !configured;
   deploymentUpdate.disabled = !authenticated || !configured;
-  deploymentOpen.disabled = (appsScriptStatus?.deploymentId ?? required<HTMLInputElement>("deployment-id").value).length === 0;
+  syncDeploymentOpenAction(
+    openDeploymentType(),
+    appsScriptStatus?.deploymentId ?? required<HTMLInputElement>("deployment-id").value,
+    deploymentOpen,
+  );
   deploymentType.disabled = appsScriptStatus === undefined;
   deploymentAccess.disabled = appsScriptStatus === undefined;
   deploymentExecuteAs.disabled = appsScriptStatus === undefined || deploymentType.value !== "webapp";
@@ -659,6 +668,13 @@ function updateActions(): void {
   firebaseOpen.disabled = false;
   refreshButton.disabled = false;
   for (const button of Object.values(navButtons)) button.disabled = false;
+}
+
+function openDeploymentType(): "webapp" | "executionApi" {
+  return deploymentType.value === "webapp" &&
+    appsScriptStatus?.deploymentConfiguration.type === "webapp"
+    ? "webapp"
+    : "executionApi";
 }
 
 function renderDeploymentConfiguration(configuration: DeploymentConfiguration): void {
