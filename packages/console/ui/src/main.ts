@@ -40,9 +40,24 @@ type AppsScriptStatus = {
   readonly scriptId?: string;
   readonly rootDir: string;
   readonly manifestExists: boolean;
+  readonly deploymentConfiguration: DeploymentConfiguration;
+  readonly deploymentConfigurationSource: "manifest" | "default";
   readonly desired: boolean;
   readonly deploymentId?: string;
 };
+
+type DeploymentConfiguration =
+  | {
+      readonly type: "webapp";
+      readonly access: DeploymentAccess;
+      readonly executeAs: WebAppExecuteAs;
+    }
+  | {
+      readonly type: "executionApi";
+      readonly access: DeploymentAccess;
+    };
+type DeploymentAccess = "MYSELF" | "DOMAIN" | "ANYONE" | "ANYONE_ANONYMOUS";
+type WebAppExecuteAs = "USER_ACCESSING" | "USER_DEPLOYING";
 
 type FirebaseStatus = {
   readonly enabled: boolean;
@@ -134,6 +149,10 @@ const deploymentList = required<HTMLButtonElement>("deployment-list");
 const deploymentCreate = required<HTMLButtonElement>("deployment-create");
 const deploymentUpdate = required<HTMLButtonElement>("deployment-update");
 const deploymentOpen = required<HTMLButtonElement>("deployment-open");
+const deploymentType = required<HTMLSelectElement>("deployment-type");
+const deploymentAccess = required<HTMLSelectElement>("deployment-access");
+const deploymentExecuteAs = required<HTMLSelectElement>("deployment-execute-as");
+const deploymentExecuteAsField = required<HTMLElement>("deployment-execute-as-field");
 
 const developmentStart = required<HTMLButtonElement>("development-start");
 const developmentStop = required<HTMLButtonElement>("development-stop");
@@ -264,6 +283,9 @@ deploymentOpen.addEventListener("click", () => {
   const id = appsScriptStatus?.deploymentId ?? required<HTMLInputElement>("deployment-id").value.trim();
   if (id.length > 0) window.open(`https://script.google.com/macros/s/${id}/exec`, "_blank", "noopener");
 });
+deploymentType.addEventListener("change", () => void saveDeploymentConfiguration());
+deploymentAccess.addEventListener("change", () => void saveDeploymentConfiguration());
+deploymentExecuteAs.addEventListener("change", () => void saveDeploymentConfiguration());
 
 firebaseEnable.addEventListener("click", () =>
   void runOperation("firebase.enable", {}, firebaseLog, renderFirebaseStatus, [firebaseEnable]),
@@ -389,7 +411,7 @@ async function runOperation<TInput, TResult>(
   input: TInput,
   log: HTMLElement,
   onResult: (result: TResult) => void,
-  controls: readonly HTMLButtonElement[] = [],
+  controls: readonly FormControl[] = [],
 ): Promise<void> {
   setControlsDisabled(controls, true);
   setRuntimeStatus("running", "Working");
@@ -502,6 +524,12 @@ function renderAppsScriptStatus(status: AppsScriptStatus): void {
   setStatusBadge("apps-project-status", status.configured, "Connected", "Not initialized");
   setStatusBadge("apps-manifest-status", status.manifestExists, "Found", "Missing");
   setStatusBadge("deployment-project-status", status.configured, "Ready", "Prerequisite");
+  setStatusBadge(
+    "deployment-manifest-status",
+    status.deploymentConfigurationSource === "manifest",
+    "Saved",
+    "Default",
+  );
   required("apps-account-detail").textContent = status.authenticated
     ? "clasp authorization available"
     : "No clasp authorization found";
@@ -514,10 +542,15 @@ function renderAppsScriptStatus(status: AppsScriptStatus): void {
   required("deployment-project-detail").textContent = status.configured
     ? `Script ID: ${status.scriptId ?? "connected"}`
     : "Create or connect an Apps Script project first";
+  required("deployment-manifest-detail").textContent =
+    status.deploymentConfigurationSource === "manifest"
+      ? "Deployment configuration is loaded from appsscript.json"
+      : "Using initial defaults until saved to appsscript.json";
   required<HTMLInputElement>("deployment-id").value = status.deploymentId ?? "";
   setStatusBadge("deployment-id-status", status.deploymentId !== undefined, "Selected", "Not selected");
   required("deployment-id-detail").textContent =
     status.deploymentId === undefined ? "No deployment synced to .env" : status.deploymentId;
+  renderDeploymentConfiguration(status.deploymentConfiguration);
   renderAppsSetupMode();
   updateActions();
 }
@@ -583,7 +616,9 @@ function showView(view: View): void {
   }
 }
 
-function setControlsDisabled(controls: readonly HTMLButtonElement[], disabled: boolean): void {
+type FormControl = HTMLButtonElement | HTMLSelectElement | HTMLInputElement;
+
+function setControlsDisabled(controls: readonly FormControl[], disabled: boolean): void {
   for (const control of controls) control.disabled = disabled;
 }
 
@@ -602,6 +637,9 @@ function updateActions(): void {
   deploymentCreate.disabled = !authenticated || !configured;
   deploymentUpdate.disabled = !authenticated || !configured;
   deploymentOpen.disabled = (appsScriptStatus?.deploymentId ?? required<HTMLInputElement>("deployment-id").value).length === 0;
+  deploymentType.disabled = appsScriptStatus === undefined;
+  deploymentAccess.disabled = appsScriptStatus === undefined;
+  deploymentExecuteAs.disabled = appsScriptStatus === undefined || deploymentType.value !== "webapp";
   developmentStart.disabled = developmentStatus?.running === true;
   developmentStop.disabled = developmentStatus?.running !== true;
   developmentRestart.disabled = developmentStatus?.running !== true;
@@ -621,6 +659,40 @@ function updateActions(): void {
   firebaseOpen.disabled = false;
   refreshButton.disabled = false;
   for (const button of Object.values(navButtons)) button.disabled = false;
+}
+
+function renderDeploymentConfiguration(configuration: DeploymentConfiguration): void {
+  deploymentType.value = configuration.type;
+  deploymentAccess.value = configuration.access;
+  deploymentExecuteAsField.hidden = configuration.type !== "webapp";
+  deploymentExecuteAs.value =
+    configuration.type === "webapp" ? configuration.executeAs : "USER_DEPLOYING";
+}
+
+async function saveDeploymentConfiguration(): Promise<void> {
+  const configuration =
+    deploymentType.value === "executionApi"
+      ? {
+          type: "executionApi" as const,
+          access: deploymentAccess.value as DeploymentAccess,
+        }
+      : {
+          type: "webapp" as const,
+          access: deploymentAccess.value as DeploymentAccess,
+          executeAs: deploymentExecuteAs.value as WebAppExecuteAs,
+        };
+  renderDeploymentConfiguration(configuration);
+
+  await runOperation(
+    "apps.deployment.configuration.update",
+    configuration,
+    deploymentLog,
+    (result: { status: AppsScriptStatus }) => {
+      renderAppsScriptStatus(result.status);
+      appendLog(deploymentLog, "Saved deployment configuration to appsscript.json", "info");
+    },
+    [deploymentType, deploymentAccess, deploymentExecuteAs],
+  );
 }
 
 async function copyCredentialKey(key: string): Promise<void> {

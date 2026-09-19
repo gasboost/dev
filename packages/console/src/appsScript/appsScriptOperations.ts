@@ -6,6 +6,13 @@ import { join } from "node:path";
 import { z } from "zod";
 import { EnvFileRepository } from "../env/EnvFileRepository.js";
 import { openBrowser } from "../openBrowser.js";
+import {
+  AppsScriptManifestRepository,
+  deploymentAccessValues,
+  webAppExecuteAsValues,
+  type DeploymentConfiguration,
+  type DeploymentType,
+} from "./AppsScriptManifestRepository.js";
 import { AppsScriptProjectRepository } from "./AppsScriptProjectRepository.js";
 import type { ClaspResult, ClaspRunner } from "./ClaspRunner.js";
 
@@ -15,6 +22,8 @@ export type AppsScriptStatus = {
   readonly scriptId?: string;
   readonly rootDir: string;
   readonly manifestExists: boolean;
+  readonly deploymentConfiguration: DeploymentConfiguration;
+  readonly deploymentConfigurationSource: "manifest" | "default";
   readonly desired: boolean;
   readonly deploymentId?: string;
 };
@@ -47,6 +56,21 @@ const updateDeploymentInput = z
     description: z.string().trim().max(120).optional(),
   })
   .strict();
+const deploymentConfigurationInput = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("webapp"),
+      access: z.enum(deploymentAccessValues),
+      executeAs: z.enum(webAppExecuteAsValues),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("executionApi"),
+      access: z.enum(deploymentAccessValues),
+    })
+    .strict(),
+]);
 const defaultAppsScriptConfig: GasboostAppsScriptConfig = { type: "webapp" };
 
 export function createAppsScriptOperations({
@@ -67,13 +91,16 @@ export function createAppsScriptOperations({
     projectRoot,
     config: effectiveConfig,
   });
+  const manifestRepository = new AppsScriptManifestRepository(projectRoot);
   const envRepository = new EnvFileRepository(projectRoot);
   const status = async (): Promise<AppsScriptStatus> =>
     getAppsScriptStatus({
       configDesired: config !== undefined,
       projectRepository,
+      manifestRepository,
       envRepository,
       clasp,
+      fallbackDeploymentType: effectiveConfig.type,
     });
 
   return [
@@ -171,6 +198,19 @@ export function createAppsScriptOperations({
       },
     },
     {
+      id: "apps.deployment.configuration.update",
+      input: deploymentConfigurationInput,
+      async handler(input, context) {
+        context.progress({ message: "Saving deployment manifest", percentage: 40 });
+        const configuration = await manifestRepository.updateDeploymentConfiguration(input);
+        context.progress({ message: "Deployment manifest saved", percentage: 100 });
+        return {
+          configuration,
+          status: await status(),
+        };
+      },
+    },
+    {
       id: "apps.deployment.create",
       input: createDeploymentInput,
       async handler(input, context) {
@@ -214,17 +254,22 @@ export function createAppsScriptOperations({
 async function getAppsScriptStatus({
   configDesired,
   projectRepository,
+  manifestRepository,
   envRepository,
   clasp,
+  fallbackDeploymentType,
 }: {
   readonly configDesired: boolean;
   readonly projectRepository: AppsScriptProjectRepository;
+  readonly manifestRepository: AppsScriptManifestRepository;
   readonly envRepository: EnvFileRepository;
   readonly clasp: ClaspRunner;
+  readonly fallbackDeploymentType: DeploymentType;
 }): Promise<AppsScriptStatus> {
-  const [project, authorization] = await Promise.all([
+  const [project, authorization, deploymentManifest] = await Promise.all([
     projectRepository.read(),
     clasp.run(["show-authorized-user", "--json"]),
+    manifestRepository.readDeploymentConfiguration(fallbackDeploymentType),
   ]);
   if (project.scriptId !== undefined) {
     await envRepository.update({ GAS_SCRIPT_ID: project.scriptId });
@@ -236,7 +281,9 @@ async function getAppsScriptStatus({
     configured: project.configured,
     ...(project.scriptId === undefined ? {} : { scriptId: project.scriptId }),
     rootDir: project.rootDir,
-    manifestExists: project.manifestExists,
+    manifestExists: deploymentManifest.exists,
+    deploymentConfiguration: deploymentManifest.configuration,
+    deploymentConfigurationSource: deploymentManifest.source,
     desired: configDesired,
     ...(runtime.DEPLOYMENT_ID === undefined
       ? {}
