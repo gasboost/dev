@@ -27,7 +27,7 @@ export class AppsScriptProjectRepository {
   public async read(): Promise<AppsScriptProjectState> {
     const settings = await this.readClaspSettings();
     const manifestExists = await this.exists(
-      join(this.projectRoot, settings.rootDir, "appsscript.json"),
+      join(this.projectRoot, "appsscript.json"),
     );
 
     return { ...settings, manifestExists };

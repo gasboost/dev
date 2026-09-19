@@ -1,5 +1,8 @@
 import type { GasboostAppsScriptConfig } from "@gasboost/config";
 import type { OperationDefinition } from "@gasboost/console-runtime";
+import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { z } from "zod";
 import { EnvFileRepository } from "../env/EnvFileRepository.js";
 import { openBrowser } from "../openBrowser.js";
@@ -17,6 +20,9 @@ export type AppsScriptStatus = {
 };
 
 type AppsScriptOperation = OperationDefinition<any, unknown>;
+type BuildRunner = {
+  readonly run: (onOutput?: (line: string) => void) => Promise<ClaspResult>;
+};
 
 const emptyInput = z.object({}).strict();
 const createInput = z
@@ -47,11 +53,13 @@ export function createAppsScriptOperations({
   projectRoot,
   config,
   clasp,
+  build = createBuildRunner(projectRoot),
   browserOpener = openBrowser,
 }: {
   readonly projectRoot: string;
   readonly config?: GasboostAppsScriptConfig;
   readonly clasp: ClaspRunner;
+  readonly build?: BuildRunner;
   readonly browserOpener?: (url: string) => Promise<void>;
 }): readonly AppsScriptOperation[] {
   const effectiveConfig = config ?? defaultAppsScriptConfig;
@@ -142,9 +150,12 @@ export function createAppsScriptOperations({
       input: pushInput,
       async handler(_input, context) {
         await assertProjectConfigured(projectRepository);
-        context.progress({ message: "Pushing local files", percentage: 20 });
+        context.progress({ message: "Building deployment artifact", percentage: 20 });
+        const buildResult = await build.run(context.log);
+        assertCommandSuccess("Build", buildResult);
+        context.progress({ message: "Pushing built files", percentage: 70 });
         const result = await clasp.run(["push", "--force"], context.log);
-        assertClaspSuccess("Apps Script push", result);
+        assertCommandSuccess("Apps Script push", result);
         context.progress({ message: "Push complete", percentage: 100 });
         return { pushed: true };
       },
@@ -244,6 +255,10 @@ async function assertProjectConfigured(
 }
 
 function assertClaspSuccess(action: string, result: ClaspResult): void {
+  assertCommandSuccess(action, result);
+}
+
+function assertCommandSuccess(action: string, result: ClaspResult): void {
   if (result.exitCode === 0) return;
   const diagnostic = result.stderr.trim() || result.stdout.trim();
   throw new Error(
@@ -288,4 +303,93 @@ function parseDeployments(stdout: string): {
 
 function extractDeploymentId(stdout: string): string | undefined {
   return /(?:Deployment ID|deploymentId)[:\s]+([A-Za-z0-9_-]+)/.exec(stdout)?.[1];
+}
+
+function createBuildRunner(projectRoot: string): BuildRunner {
+  return {
+    async run(onOutput) {
+      const command = await resolveBuildCommand(projectRoot);
+      return runCommand(command.executable, command.args, projectRoot, onOutput);
+    },
+  };
+}
+
+async function resolveBuildCommand(projectRoot: string): Promise<{
+  readonly executable: string;
+  readonly args: readonly string[];
+}> {
+  const packageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8")) as {
+    readonly packageManager?: string;
+    readonly scripts?: Record<string, unknown>;
+  };
+
+  if (typeof packageJson.scripts?.build !== "string") {
+    throw new Error("No package.json build script was found.");
+  }
+
+  const packageManager = packageJson.packageManager?.split("@", 1)[0] ?? "npm";
+  if (packageManager === "pnpm") return { executable: "pnpm", args: ["run", "build"] };
+  if (packageManager === "yarn") return { executable: "yarn", args: ["build"] };
+  if (packageManager === "bun") return { executable: "bun", args: ["run", "build"] };
+  return { executable: "npm", args: ["run", "build"] };
+}
+
+function runCommand(
+  executable: string,
+  args: readonly string[],
+  cwd: string,
+  onOutput: ((line: string) => void) | undefined,
+): Promise<ClaspResult> {
+  return new Promise<ClaspResult>((resolve, reject) => {
+    const child = spawn(executable, args, {
+      cwd,
+      env: { ...process.env, NO_COLOR: "1" },
+      shell: process.platform === "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    const stdoutLines = createLineEmitter(onOutput);
+    const stderrLines = createLineEmitter(onOutput);
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+      stdoutLines.write(chunk);
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+      stderrLines.write(chunk);
+    });
+    child.once("error", reject);
+    child.once("close", (exitCode) => {
+      stdoutLines.flush();
+      stderrLines.flush();
+      resolve({ exitCode: exitCode ?? 1, stdout, stderr });
+    });
+  });
+}
+
+function createLineEmitter(
+  onOutput: ((line: string) => void) | undefined,
+): { readonly write: (chunk: string) => void; readonly flush: () => void } {
+  let buffer = "";
+  const emit = (line: string): void => {
+    const message = line.trim();
+    if (message.length > 0) onOutput?.(message);
+  };
+
+  return {
+    write(chunk) {
+      buffer += chunk;
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? "";
+      for (const line of lines) emit(line);
+    },
+    flush() {
+      emit(buffer);
+      buffer = "";
+    },
+  };
 }

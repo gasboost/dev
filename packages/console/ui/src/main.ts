@@ -127,6 +127,8 @@ const appsPush = required<HTMLButtonElement>("apps-push");
 const appsPull = required<HTMLButtonElement>("apps-pull");
 const credentialServiceAccount = required<HTMLButtonElement>("credential-service-account");
 const credentialScriptProperties = required<HTMLButtonElement>("credential-script-properties");
+const credentialCopyEmail = required<HTMLButtonElement>("credential-copy-email");
+const credentialCopyPrivateKey = required<HTMLButtonElement>("credential-copy-private-key");
 
 const deploymentList = required<HTMLButtonElement>("deployment-list");
 const deploymentCreate = required<HTMLButtonElement>("deployment-create");
@@ -222,6 +224,12 @@ credentialScriptProperties.addEventListener("click", () => {
     "noopener",
   );
 });
+credentialCopyEmail.addEventListener("click", () =>
+  void copyCredentialKey("FIREBASE_SERVICE_ACCOUNT_EMAIL"),
+);
+credentialCopyPrivateKey.addEventListener("click", () =>
+  void copyCredentialKey("FIREBASE_PRIVATE_KEY"),
+);
 
 deploymentList.addEventListener("click", () =>
   void runOperation(
@@ -613,6 +621,11 @@ function updateActions(): void {
   firebaseOpen.disabled = false;
   refreshButton.disabled = false;
   for (const button of Object.values(navButtons)) button.disabled = false;
+}
+
+async function copyCredentialKey(key: string): Promise<void> {
+  await navigator.clipboard.writeText(key);
+  appendLog(appsLog, `Copied ${key}`, "info");
 }
 
 function setCapability(id: string, enabled: boolean): void {
