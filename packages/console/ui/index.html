@@ -155,6 +155,19 @@
               <h3>Firebase credentials</h3>
               <p class="field__help">Create a service account key in Firebase, then add its values to Script Properties in Apps Script. Credentials stay in those provider interfaces and never pass through Console.</p>
             </div>
+            <div class="credential-map" aria-label="Required Script Properties">
+              <div class="credential-map__header">Add these values to Apps Script Script Properties</div>
+              <div class="credential-map__row">
+                <code>FIREBASE_SERVICE_ACCOUNT_EMAIL</code>
+                <span>client_email</span>
+                <button class="icon-button light copy-key" id="credential-copy-email" type="button" title="Copy key" aria-label="Copy FIREBASE_SERVICE_ACCOUNT_EMAIL"><i data-lucide="copy"></i></button>
+              </div>
+              <div class="credential-map__row">
+                <code>FIREBASE_PRIVATE_KEY</code>
+                <span>private_key</span>
+                <button class="icon-button light copy-key" id="credential-copy-private-key" type="button" title="Copy key" aria-label="Copy FIREBASE_PRIVATE_KEY"><i data-lucide="copy"></i></button>
+              </div>
+            </div>
             <div class="action-bar">
               <button class="command-button" id="credential-service-account" type="button"><i data-lucide="key-round"></i>1. Open Service Accounts</button>
               <button class="command-button" id="credential-script-properties" type="button"><i data-lucide="external-link"></i>2. Open Script Properties</button>

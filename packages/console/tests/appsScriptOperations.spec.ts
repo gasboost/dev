@@ -66,7 +66,29 @@ describe("Apps Script operations", () => {
     expect(run).toHaveBeenCalledWith(["show-authorized-user", "--json"]);
   });
 
-  it("rootDir配下のmanifestをactual stateとして検出する", async () => {
+  it("project rootのsource manifestをactual stateとして検出する", async () => {
+    const projectRoot = await createProject();
+    await mkdir(join(projectRoot, "dist"));
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123", rootDir: "dist" }),
+      "utf8",
+    );
+    await writeFile(join(projectRoot, "appsscript.json"), "{}", "utf8");
+    const operations = createAppsScriptOperations({
+      projectRoot,
+      config: { type: "webapp" },
+      clasp: {
+        run: vi.fn(async () => ({ exitCode: 0, stdout: "{}", stderr: "" })),
+      },
+    });
+
+    await expect(
+      operationById(operations, "apps.status").handler({}, context()),
+    ).resolves.toMatchObject({ rootDir: "dist", manifestExists: true });
+  });
+
+  it("rootDir配下だけにmanifestがあってもsource manifestとしては検出しない", async () => {
     const projectRoot = await createProject();
     await mkdir(join(projectRoot, "dist"));
     await writeFile(
@@ -85,7 +107,7 @@ describe("Apps Script operations", () => {
 
     await expect(
       operationById(operations, "apps.status").handler({}, context()),
-    ).resolves.toMatchObject({ rootDir: "dist", manifestExists: true });
+    ).resolves.toMatchObject({ rootDir: "dist", manifestExists: false });
   });
 
   it("connectで既存.clasp.jsonの管理対象外fieldを保持する", async () => {
@@ -162,7 +184,43 @@ describe("Apps Script operations", () => {
     );
   });
 
-  it("明示確認済みinputだけでforce pushする", async () => {
+  it("明示確認済みinputだけでbuild後にforce pushする", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123" }),
+      "utf8",
+    );
+    const calls: string[] = [];
+    const build = vi.fn(async () => {
+      calls.push("build");
+      await mkdir(join(projectRoot, "dist"));
+      await writeFile(join(projectRoot, "dist", "appsscript.json"), "{}", "utf8");
+      return { exitCode: 0, stdout: "built", stderr: "" };
+    });
+    const run = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
+    const operation = operationById(
+      createAppsScriptOperations({
+        projectRoot,
+        config: { type: "webapp" },
+        clasp: { run },
+        build: { run: build },
+      }),
+      "apps.push",
+    );
+
+    expect(operation.input.safeParse({ confirmed: false }).success).toBe(false);
+    expect(operation.input.safeParse({ confirmed: true }).success).toBe(true);
+    expect(operation.input.safeParse({ confirmed: true, command: "rm -rf dist" }).success).toBe(false);
+    await operation.handler({ confirmed: true }, context());
+
+    expect(build).toHaveBeenCalledWith(expect.any(Function));
+    expect(run).toHaveBeenCalledWith(["push", "--force"], expect.any(Function));
+    expect(calls).toEqual(["build"]);
+    await expect(readFile(join(projectRoot, "dist", "appsscript.json"), "utf8")).resolves.toBe("{}");
+  });
+
+  it("build失敗時はforce pushしない", async () => {
     const projectRoot = await createProject();
     await writeFile(
       join(projectRoot, ".clasp.json"),
@@ -175,15 +233,21 @@ describe("Apps Script operations", () => {
         projectRoot,
         config: { type: "webapp" },
         clasp: { run },
+        build: {
+          run: vi.fn(async () => ({
+            exitCode: 1,
+            stdout: "",
+            stderr: "compile failed",
+          })),
+        },
       }),
       "apps.push",
     );
 
-    expect(operation.input.safeParse({ confirmed: false }).success).toBe(false);
-    expect(operation.input.safeParse({ confirmed: true }).success).toBe(true);
-    await operation.handler({ confirmed: true }, context());
-
-    expect(run).toHaveBeenCalledWith(["push", "--force"], expect.any(Function));
+    await expect(operation.handler({ confirmed: true }, context())).rejects.toThrow(
+      "Build failed: compile failed",
+    );
+    expect(run).not.toHaveBeenCalledWith(["push", "--force"], expect.any(Function));
   });
 
   it("project未作成ではopenを拒否する", async () => {
