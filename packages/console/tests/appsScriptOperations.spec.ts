@@ -356,7 +356,11 @@ describe("Apps Script operations", () => {
       "utf8",
     );
     const build = vi.fn(async () => ({ exitCode: 0, stdout: "built", stderr: "" }));
-    const run = vi.fn(async () => ({ exitCode: 0, stdout: "Deployment ID: dep-123", stderr: "" }));
+    const run = vi.fn(async () => ({
+      exitCode: 0,
+      stdout: JSON.stringify({ deploymentId: "dep-123" }),
+      stderr: "",
+    }));
     const operation = operationById(
       createAppsScriptOperations({
         projectRoot,
@@ -373,7 +377,47 @@ describe("Apps Script operations", () => {
 
     expect(build).toHaveBeenCalledWith(expect.any(Function));
     expect(run).toHaveBeenCalledWith(["push", "--force"], expect.any(Function));
-    expect(run).toHaveBeenCalledWith(["create-deployment"], expect.any(Function));
+    expect(run).toHaveBeenCalledWith(["create-deployment", "--json"], expect.any(Function));
+  });
+
+  it("deployment createはdescription指定時もJSON出力からdeployment IDを保存する", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123" }),
+      "utf8",
+    );
+    const build = vi.fn(async () => ({ exitCode: 0, stdout: "built", stderr: "" }));
+    const run = vi.fn(async () => ({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        deploymentId: "dep-json-123",
+        versionNumber: 1,
+        description: "Release",
+      }),
+      stderr: "",
+    }));
+    const operation = operationById(
+      createAppsScriptOperations({
+        projectRoot,
+        config: { type: "webapp" },
+        clasp: { run },
+        build: { run: build },
+      }),
+      "apps.deployment.create",
+    );
+
+    await expect(
+      operation.handler({ description: "Release" }, context()),
+    ).resolves.toEqual({ deploymentId: "dep-json-123" });
+
+    expect(run).toHaveBeenCalledWith(
+      ["create-deployment", "--json", "--description", "Release"],
+      expect.any(Function),
+    );
+    await expect(readFile(join(projectRoot, ".env"), "utf8")).resolves.toContain(
+      "DEPLOYMENT_ID=dep-json-123",
+    );
   });
 
   it("structured inputだけでWeb App deployment configをappsscript.jsonに保存する", async () => {
@@ -528,7 +572,11 @@ describe("Apps Script operations", () => {
     });
     const run = vi.fn(async (args: readonly string[]) => {
       calls.push(args.join(" "));
-      return { exitCode: 0, stdout: "Deployment ID: dep-123", stderr: "" };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify({ deploymentId: "dep-123" }),
+        stderr: "",
+      };
     });
     const operations = createAppsScriptOperations({
       projectRoot,
@@ -539,13 +587,73 @@ describe("Apps Script operations", () => {
 
     await operationById(operations, "apps.deployment.create").handler({}, context());
 
-    expect(calls).toEqual(["build", "push --force", "create-deployment"]);
+    expect(calls).toEqual(["build", "push --force", "create-deployment --json"]);
     expect(build).toHaveBeenCalledWith(expect.any(Function));
     expect(run).toHaveBeenNthCalledWith(1, ["push", "--force"], expect.any(Function));
-    expect(run).toHaveBeenNthCalledWith(2, ["create-deployment"], expect.any(Function));
+    expect(run).toHaveBeenNthCalledWith(2, ["create-deployment", "--json"], expect.any(Function));
     await expect(readFile(join(projectRoot, ".env"), "utf8")).resolves.toContain(
       "DEPLOYMENT_ID=dep-123",
     );
+  });
+
+  it("deployment createはJSONにdeployment IDがない場合は.envを更新せず失敗する", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123" }),
+      "utf8",
+    );
+    const run = vi.fn(async () => ({
+      exitCode: 0,
+      stdout: JSON.stringify({ versionNumber: 1 }),
+      stderr: "",
+    }));
+    const operation = operationById(
+      createAppsScriptOperations({
+        projectRoot,
+        config: { type: "webapp" },
+        clasp: { run },
+        build: {
+          run: vi.fn(async () => ({ exitCode: 0, stdout: "built", stderr: "" })),
+        },
+      }),
+      "apps.deployment.create",
+    );
+
+    await expect(operation.handler({}, context())).rejects.toThrow(
+      "Deployment ID was not returned by clasp.",
+    );
+    await expect(readFile(join(projectRoot, ".env"), "utf8")).rejects.toThrow();
+  });
+
+  it("deployment createはinvalid JSONの場合は.envを更新せず失敗する", async () => {
+    const projectRoot = await createProject();
+    await writeFile(
+      join(projectRoot, ".clasp.json"),
+      JSON.stringify({ scriptId: "script-123" }),
+      "utf8",
+    );
+    const run = vi.fn(async () => ({
+      exitCode: 0,
+      stdout: "Deployed AKfycbxxxxxxxx @1",
+      stderr: "",
+    }));
+    const operation = operationById(
+      createAppsScriptOperations({
+        projectRoot,
+        config: { type: "webapp" },
+        clasp: { run },
+        build: {
+          run: vi.fn(async () => ({ exitCode: 0, stdout: "built", stderr: "" })),
+        },
+      }),
+      "apps.deployment.create",
+    );
+
+    await expect(operation.handler({}, context())).rejects.toThrow(
+      "Deployment creation did not return valid JSON.",
+    );
+    await expect(readFile(join(projectRoot, ".env"), "utf8")).rejects.toThrow();
   });
 
   it("deployment createはbuild失敗時にpushとcreate-deploymentを実行しない", async () => {
@@ -576,7 +684,7 @@ describe("Apps Script operations", () => {
       "Build failed: compile failed",
     );
     expect(run).not.toHaveBeenCalledWith(["push", "--force"], expect.any(Function));
-    expect(run).not.toHaveBeenCalledWith(["create-deployment"], expect.any(Function));
+    expect(run).not.toHaveBeenCalledWith(["create-deployment", "--json"], expect.any(Function));
   });
 
   it("deployment createはpush失敗時にcreate-deploymentを実行しない", async () => {
@@ -590,7 +698,11 @@ describe("Apps Script operations", () => {
       if (args[0] === "push") {
         return { exitCode: 1, stdout: "", stderr: "push failed" };
       }
-      return { exitCode: 0, stdout: "Deployment ID: dep-123", stderr: "" };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify({ deploymentId: "dep-123" }),
+        stderr: "",
+      };
     });
     const operation = operationById(
       createAppsScriptOperations({
@@ -608,7 +720,7 @@ describe("Apps Script operations", () => {
       "Apps Script push failed: push failed",
     );
     expect(run).toHaveBeenCalledWith(["push", "--force"], expect.any(Function));
-    expect(run).not.toHaveBeenCalledWith(["create-deployment"], expect.any(Function));
+    expect(run).not.toHaveBeenCalledWith(["create-deployment", "--json"], expect.any(Function));
   });
 
   it("deployment updateにはbuildやpushを追加しない", async () => {
