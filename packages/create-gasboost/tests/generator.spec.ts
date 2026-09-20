@@ -226,6 +226,8 @@ function assertFrontend(
   if (!capabilities.frontend) {
     expect(packageJson.dependencies.react).toBeUndefined();
 
+    expect(packageJson.dependencies["@gasboost/react"]).toBeUndefined();
+
     return;
   }
 
@@ -235,9 +237,20 @@ function assertFrontend(
 
   expect(packageJson.dependencies["@gasboost/client"]).toBe("^0.3.0");
 
-  expect(packageJson.dependencies["@gasboost/react"]).toBeUndefined();
+  expect(packageJson.dependencies["@gasboost/react"]).toBe("^0.1.2");
 
   expect(packageJson.devDependencies["@gasboost/react"]).toBeUndefined();
+
+  const main = requiredFile(files, "src/frontend/main.tsx");
+
+  expect(main).toContain(
+    'import { AppsScriptRouter } from "@gasboost/react";',
+  );
+
+  expect(main).toContain("<StrictMode>");
+  expect(main).toContain("<AppsScriptRouter>");
+  expect(main).toContain("<App />");
+  expect(main).toContain("</AppsScriptRouter>");
 
   const app = requiredFile(files, "src/frontend/App.tsx");
 
