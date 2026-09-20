@@ -11,6 +11,7 @@ export function frontendFragment(): ProjectFragment {
 
     dependencies: {
       "@gasboost/client": "^0.3.0",
+      "@gasboost/react": "^0.1.2",
       react: "^19.3.0",
       "react-dom": "^19.3.0",
     },
@@ -53,7 +54,8 @@ function renderIndexHtml(): string {
 }
 
 function renderMain(): string {
-  return `import { StrictMode } from "react";
+  return `import { AppsScriptRouter } from "@gasboost/react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 
@@ -65,7 +67,9 @@ if (root === null) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <AppsScriptRouter>
+      <App />
+    </AppsScriptRouter>
   </StrictMode>,
 );
 `;
