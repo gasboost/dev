@@ -1,6 +1,6 @@
 {
   "name": "@gasboost/cli",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "description": "Developer tooling for the Gasboost ecosystem",
   "type": "module",
   "bin": {

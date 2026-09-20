@@ -210,17 +210,15 @@ export function createAppsScriptOperations({
       async handler(input, context) {
         await assertProjectConfigured(projectRepository);
         await buildAndPush({ build, clasp, context, completePercentage: 75 });
-        const args = ["create-deployment"];
+        const args = ["create-deployment", "--json"];
         if (input.description !== undefined && input.description.length > 0) {
           args.push("--description", input.description);
         }
         context.progress({ message: "Creating deployment", percentage: 90 });
         const result = await clasp.run(args, context.log);
         assertClaspSuccess("Creating deployment", result);
-        const deploymentId = extractDeploymentId(result.stdout);
-        if (deploymentId !== undefined) {
-          await envRepository.update({ DEPLOYMENT_ID: deploymentId });
-        }
+        const { deploymentId } = parseCreatedDeployment(result.stdout);
+        await envRepository.update({ DEPLOYMENT_ID: deploymentId });
         context.progress({ message: "Deployment created", percentage: 100 });
         return { deploymentId };
       },
@@ -365,8 +363,24 @@ function parseDeployments(stdout: string): {
   }
 }
 
-function extractDeploymentId(stdout: string): string | undefined {
-  return /(?:Deployment ID|deploymentId)[:\s]+([A-Za-z0-9_-]+)/.exec(stdout)?.[1];
+function parseCreatedDeployment(stdout: string): { readonly deploymentId: string } {
+  let value: unknown;
+  try {
+    value = JSON.parse(stdout);
+  } catch {
+    throw new Error("Deployment creation did not return valid JSON.");
+  }
+
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Deployment creation did not return a JSON object.");
+  }
+
+  const deploymentId = "deploymentId" in value ? value.deploymentId : undefined;
+  if (typeof deploymentId !== "string" || deploymentId.length === 0) {
+    throw new Error("Deployment ID was not returned by clasp.");
+  }
+
+  return { deploymentId };
 }
 
 function createBuildRunner(projectRoot: string): BuildRunner {
