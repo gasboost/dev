@@ -1,5 +1,5 @@
 import type { GasboostAppsScriptConfig } from "@gasboost/config";
-import type { OperationDefinition } from "@gasboost/console-runtime";
+import type { OperationContext, OperationDefinition } from "@gasboost/console-runtime";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -177,13 +177,7 @@ export function createAppsScriptOperations({
       input: pushInput,
       async handler(_input, context) {
         await assertProjectConfigured(projectRepository);
-        context.progress({ message: "Building deployment artifact", percentage: 20 });
-        const buildResult = await build.run(context.log);
-        assertCommandSuccess("Build", buildResult);
-        context.progress({ message: "Pushing built files", percentage: 70 });
-        const result = await clasp.run(["push", "--force"], context.log);
-        assertCommandSuccess("Apps Script push", result);
-        context.progress({ message: "Push complete", percentage: 100 });
+        await buildAndPush({ build, clasp, context });
         return { pushed: true };
       },
     },
@@ -215,16 +209,19 @@ export function createAppsScriptOperations({
       input: createDeploymentInput,
       async handler(input, context) {
         await assertProjectConfigured(projectRepository);
+        await buildAndPush({ build, clasp, context, completePercentage: 75 });
         const args = ["create-deployment"];
         if (input.description !== undefined && input.description.length > 0) {
           args.push("--description", input.description);
         }
+        context.progress({ message: "Creating deployment", percentage: 90 });
         const result = await clasp.run(args, context.log);
         assertClaspSuccess("Creating deployment", result);
         const deploymentId = extractDeploymentId(result.stdout);
         if (deploymentId !== undefined) {
           await envRepository.update({ DEPLOYMENT_ID: deploymentId });
         }
+        context.progress({ message: "Deployment created", percentage: 100 });
         return { deploymentId };
       },
     },
@@ -249,6 +246,26 @@ export function createAppsScriptOperations({
       },
     },
   ];
+}
+
+async function buildAndPush({
+  build,
+  clasp,
+  context,
+  completePercentage = 100,
+}: {
+  readonly build: BuildRunner;
+  readonly clasp: ClaspRunner;
+  readonly context: OperationContext;
+  readonly completePercentage?: number;
+}): Promise<void> {
+  context.progress({ message: "Building deployment artifact", percentage: 20 });
+  const buildResult = await build.run(context.log);
+  assertCommandSuccess("Build", buildResult);
+  context.progress({ message: "Pushing built files", percentage: 70 });
+  const result = await clasp.run(["push", "--force"], context.log);
+  assertCommandSuccess("Apps Script push", result);
+  context.progress({ message: "Push complete", percentage: completePercentage });
 }
 
 async function getAppsScriptStatus({
