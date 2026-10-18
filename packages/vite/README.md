@@ -172,6 +172,49 @@ gasboost({
 
 `false` を指定した場合だけ、アプリケーション側で明示した transport を維持します。
 
+### `localRpc.database`
+
+任意です。`@gasboost/sheetorm` のテーブルに使うローカルデータを、
+`dbId → SheetTable.name → レコード配列` で指定します。
+Consumer にインストールされた SheetORM の `InMemoryGateway` / `InMemoryDataStore` を使用します
+（`@gasboost/sheetorm@3.4.0` で検証）。Sheets API の Fake は不要です。
+
+```ts
+const { build, dev } = gasboost({
+  entry: "src/backend/main.ts",
+  localRpc: {
+    database: {
+      SPREADSHEET_ID: {
+        users: [],
+        products: [{ id: "p-1", name: "Product A", price: 1000 }],
+      },
+    },
+  },
+});
+```
+
+本番コードの `new SheetDB({ tables, gateway: new SheetGateway(Sheets!), ... })` は
+そのまま使えます。`SheetGateway` は開発 SSR でのみインメモリ実装に差し替えられ、
+渡された Sheets 引数は使用しません。`Sheets` グローバルには未定義値を登録して名前解決を可能にします。
+明示した `runtime.Sheets` がある場合はそちらを優先します。
+空テーブルのヘッダーは登録された `SheetTable.schema` から初期化します。
+スキーマを取得するために開発 SSR の `SheetDB` コンストラクターも薄くラップしますが、
+元の設定・処理はそのまま引き継ぎます。その他のエクスポートは再エクスポートします。
+独自 Gateway を渡した `SheetDB` には初期化を適用しません。
+
+各 `SheetDB` に登録するテーブルは、空の場合も `[]` で宣言してください。
+未宣言のテーブルは DB ID とテーブル名を含むエラーになります。
+列順はレコードのプロパティ順によらずスキーマから決まり、値は文字列に変換されません。
+
+データは開発サーバー単位で一度だけ複製し、各テーブルの初回初期化時に投入します。
+作成・更新・削除した状態は別 RPC、モジュール再評価、HMR をまたいで保持されます。
+seed の再投入は行いません。設定・スキーマを変更するときやデータをリセットするときは
+開発サーバーを再起動してください。サーバー終了時に保持データを解放します。
+`localRpc.override: false` とも併用できます。
+
+未指定時の挙動は従来どおりです。フロントエンドと本番 build は元の SheetORM を使用し、
+サーバー専用の seed と差し替えコードはフロントエンド bundle に入りません。
+
 ---
 
 # Build Plugin

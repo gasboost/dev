@@ -215,6 +215,9 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
     devDependencies:
+      '@gasboost/sheetorm':
+        specifier: ^3.4.0
+        version: 3.4.0(zod@4.6.2)
       '@types/google-apps-script':
         specifier: ^2.0.12
         version: 2.0.13
@@ -224,6 +227,9 @@ importers:
       vitest:
         specifier: ^5.0.0
         version: 5.0.0(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(vite@8.3.0(@types/node@26.6.3)(jiti@2.7.0)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.2
+        version: 4.6.2
 
 packages:
 
@@ -327,11 +333,34 @@ packages:
   '@gasboost/app@5.1.0':
     resolution: {integrity: sha512-MMHBc7tlsjzzTPaC/0NPLlWOZMI+31fjr8RQi/vGg0wF5fjn+wX7k6qGENuk3HpWQMy7AisP2vrtg56p1GCyXQ==}
 
+  '@gasboost/query@1.1.1':
+    resolution: {integrity: sha512-9B75V4x8epOdeb5TzEeggfrTFvKPeulXeQkJb+hJdEM6gyHSjz8lwD9ubCLK/LINcIgmfkrVhYTcFYTtaPlb8w==}
+
   '@gasboost/realtime-firebase@0.1.1':
     resolution: {integrity: sha512-RF0UX+uwDFgisT6zPSmNneIreK/CB3BjDxKZzr9Dh4YQZxRL3ad65cK0ph4WVJW5S2dJKbonYwdjClDwACCK1w==}
 
   '@gasboost/rls@0.2.0':
     resolution: {integrity: sha512-UJVGQ5rZae9d76OUuNYxNS25aJ1zfGxTENsOQvuS3vXStFHdl88QFWoQ654iNzoxDGufEPx1/aIeTP+HRgPV0Q==}
+
+  '@gasboost/rls@0.3.1':
+    resolution: {integrity: sha512-/9ioGbTUxtumu2RSEO22LNu8LwAqhsvPGY5tbv2KyYUC8krTi5XuVJZxfy9mEueuz/MLZJJpvMcGCwXg7kDP4w==}
+    peerDependencies:
+      zod: ^4.5.4
+
+  '@gasboost/sheetorm@3.4.0':
+    resolution: {integrity: sha512-5QPLDADHSRjNoCdN5+MrybKcmH7YKtKXuEJm0x3cj5GnEFuRVBiaBuYP0nA23mFHwZWIBSlKCLUBJ8sDVgQ1VA==}
+    peerDependencies:
+      zod: ^4.5.4
+
+  '@gasboost/table@0.1.0':
+    resolution: {integrity: sha512-eJ0QNsbYSB/MB+XGLw5jiTVqL6I26+9HiZ6Uj4TmU9tGHQfiJl21EWgUgDr1HHtjxYKrVA3V12ShRWnni82/6A==}
+    peerDependencies:
+      zod: ^4.5.4
+
+  '@gasboost/table@0.2.0':
+    resolution: {integrity: sha512-kZxYjHR3wclyk2g/jh9JHA8odyI177SUtAziRy1Ae3vuOpE1SnVAgX8kV1O+NPH+pqlFC/RswDvWSm2bKHF89Q==}
+    peerDependencies:
+      zod: ^4.5.4
 
   '@google-cloud/cloud-sql-connector@1.12.0':
     resolution: {integrity: sha512-cUrI+6StY8F/dQB5Lujrl9TFYibDZGGWvPp1aHhvLn4btOlbflxdHoZ6NDWeWySCNtnOYhoiZNQfK4qPC5moBw==}
@@ -3983,12 +4012,38 @@ snapshots:
 
   '@gasboost/app@5.1.0': {}
 
+  '@gasboost/query@1.1.1(zod@4.6.2)':
+    dependencies:
+      '@gasboost/table': 0.1.0(zod@4.6.2)
+    transitivePeerDependencies:
+      - zod
+
   '@gasboost/realtime-firebase@0.1.1':
     dependencies:
       '@gasboost/rls': 0.2.0
       zod: 4.6.2
 
   '@gasboost/rls@0.2.0':
+    dependencies:
+      zod: 4.6.2
+
+  '@gasboost/rls@0.3.1(zod@4.6.2)':
+    dependencies:
+      '@gasboost/table': 0.1.0(zod@4.6.2)
+      zod: 4.6.2
+
+  '@gasboost/sheetorm@3.4.0(zod@4.6.2)':
+    dependencies:
+      '@gasboost/query': 1.1.1(zod@4.6.2)
+      '@gasboost/rls': 0.3.1(zod@4.6.2)
+      '@gasboost/table': 0.2.0(zod@4.6.2)
+      zod: 4.6.2
+
+  '@gasboost/table@0.1.0(zod@4.6.2)':
+    dependencies:
+      zod: 4.6.2
+
+  '@gasboost/table@0.2.0(zod@4.6.2)':
     dependencies:
       zod: 4.6.2
 
