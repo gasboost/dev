@@ -38,6 +38,21 @@ test("localRpc.overrideを指定できる", () => {
   expect(options.localRpc?.override).toBe(false);
 });
 
+test("localRpc.databaseに型付きレコードと空テーブルを指定できる", () => {
+  const users: { id: string; enabled: boolean }[] = [
+    { id: "u-1", enabled: true },
+  ];
+  const options: GasboostOptions = {
+    entry: "src/main.ts",
+    localRpc: {
+      override: false,
+      database: { primary: { users, products: [] } },
+    },
+  };
+
+  expect(options.localRpc?.database?.primary.users).toEqual(users);
+});
+
 test("build と dev を返す", () => {
   const { build, dev } = gasboost({
     entry: "src/server.ts",

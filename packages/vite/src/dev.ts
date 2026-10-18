@@ -1,7 +1,9 @@
 import type { AppsScript } from "@gasboost/app";
 import type { IncomingMessage } from "node:http";
+import { pathToFileURL } from "node:url";
 import { type Plugin, isRunnableDevEnvironment } from "vite";
 import type { GasboostOptions } from "./gasboost";
+import { createLocalDatabase } from "./database";
 import { installGasRuntime } from "./runtime";
 
 type RpcRequestBody = {
@@ -18,18 +20,45 @@ class InvalidRpcRequestError extends Error {
 const CLIENT_MODULE_ID = "@gasboost/client";
 const VIRTUAL_CLIENT_MODULE_ID = "\0gasboost:client";
 const LOCAL_RPC_ENDPOINT = "/__gasboost";
+const SHEETORM_MODULE_ID = "@gasboost/sheetorm";
+const VIRTUAL_SHEETORM_MODULE_ID = "\0gasboost:sheetorm";
 
 export function createDevPlugin(options: GasboostOptions): Plugin {
   const { runtime, template } = options;
 
   let resolvedClientModuleId: string | undefined;
+  let resolvedSheetormModuleId: string | undefined;
+  const database = options.localRpc?.database
+    ? createLocalDatabase(options.localRpc.database)
+    : undefined;
 
   return {
     name: "gasboost:dev",
     apply: "serve",
     enforce: "pre",
 
+    config() {
+      if (database) {
+        // Vite externalizes dependencies before resolveId unless opted out.
+        return { ssr: { noExternal: [SHEETORM_MODULE_ID] } };
+      }
+    },
+
     async resolveId(source, importer, resolveOptions) {
+      if (
+        database &&
+        source === SHEETORM_MODULE_ID &&
+        this.environment.name === "ssr"
+      ) {
+        const resolved = await this.resolve(source, importer, {
+          ...resolveOptions,
+          skipSelf: true,
+        });
+        if (!resolved) return null;
+        resolvedSheetormModuleId = resolved.id;
+        return VIRTUAL_SHEETORM_MODULE_ID;
+      }
+
       if (source !== CLIENT_MODULE_ID) {
         return null;
       }
@@ -53,6 +82,18 @@ export function createDevPlugin(options: GasboostOptions): Plugin {
     },
 
     load(id) {
+      if (id === VIRTUAL_SHEETORM_MODULE_ID && database) {
+        if (this.environment.name !== "ssr") return null;
+        if (!resolvedSheetormModuleId) {
+          throw new Error("@gasboost/sheetorm could not be resolved.");
+        }
+        // A native module bridge keeps the original package external even when
+        // Vite's noExternal setting routes its public import through our shim.
+        const bridge = `export * from ${JSON.stringify(pathToFileURL(resolvedSheetormModuleId).href)};`;
+        const original = `data:text/javascript;base64,${Buffer.from(bridge).toString("base64")}`;
+        return database.moduleSource(original);
+      }
+
       if (id !== VIRTUAL_CLIENT_MODULE_ID) {
         return null;
       }
@@ -92,7 +133,10 @@ export function appsScriptClient(options = {}) {
     },
 
     configureServer(server) {
-      installGasRuntime(runtime);
+      // Resolve the GAS global in unchanged `new SheetGateway(Sheets!)` code.
+      // The local gateway ignores it; no Sheets API emulator is installed.
+      installGasRuntime(database ? { Sheets: undefined, ...runtime } : runtime);
+      database?.install();
 
       server.middlewares.use(async (request, response, next) => {
         if (!request.url) {
@@ -175,6 +219,10 @@ export function appsScriptClient(options = {}) {
           );
         }
       });
+    },
+
+    closeBundle() {
+      database?.dispose();
     },
 
     transformIndexHtml(html) {

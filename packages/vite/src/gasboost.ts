@@ -9,6 +9,7 @@ export interface GasboostOptions {
   envDir?: string;
   localRpc?: {
     override?: boolean;
+    database?: Record<string, Record<string, Record<string, unknown>[]>>;
   };
   runtime?: GasRuntime;
   template?: Record<string, string>;
