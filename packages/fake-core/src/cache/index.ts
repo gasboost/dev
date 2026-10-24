@@ -1,2 +1,5 @@
 export { InMemoryCache } from "./InMemoryCache";
-export { InMemoryCacheService } from "./InMemoryCacheService";
+export {
+  InMemoryCacheService,
+  type InMemoryCacheServiceOptions,
+} from "./InMemoryCacheService";
