@@ -311,7 +311,14 @@ function readRequest(request: IncomingMessage): Promise<RpcRequestBody> {
       }
 
       resolve({
-        input: "input" in body ? body.input : undefined,
+        // Match AppsScriptTransport's serializable positional placeholder.
+        // Without metadata, preserve the existing no-input behavior.
+        input:
+          "input" in body
+            ? body.input
+            : metadata === undefined
+              ? undefined
+              : null,
         metadata: metadata as RpcMetadata | undefined,
       });
     });

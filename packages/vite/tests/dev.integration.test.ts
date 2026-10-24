@@ -182,7 +182,11 @@ describe("gasboost dev", () => {
     );
 
     expect(response.statusCode).toBe(200);
-    expect(dispatch).toHaveBeenCalledWith("example", input, metadata);
+    expect(dispatch).toHaveBeenCalledWith(
+      "example",
+      input === undefined ? null : input,
+      metadata,
+    );
   });
 
   test.each([null, [], "invalid", 1, false].map((metadata) => ({ metadata })))(

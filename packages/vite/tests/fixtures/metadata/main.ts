@@ -20,7 +20,8 @@ const app = new AppsScript()
     input,
     observed: context.state.get("observed"),
   }))
-  .call("noInput", (_input: undefined, context) => ({
+  .call("noInput", (input: undefined, context) => ({
+    input,
     observed: context.state.get("observed"),
   }));
 

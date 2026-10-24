@@ -58,10 +58,19 @@ describe("Local RPC metadata transport", () => {
     const metadata = { arbitrary: { nested: ["value", 0] } };
 
     expect(await client.noInput(undefined, { metadata })).toEqual({
-      observed: { metadata },
+      input: null,
+      observed: { input: null, metadata },
     });
     expect(await client.noInput(undefined, { metadata: {} })).toEqual({
-      observed: { metadata: {} },
+      input: null,
+      observed: { input: null, metadata: {} },
+    });
+    // Explicit null is preserved, just as on the GAS transport.
+    expect(
+      JSON.parse((await transport.call("noInput", null, metadata)).contents),
+    ).toEqual({
+      input: null,
+      observed: { input: null, metadata },
     });
     expect(await client.noInput()).toEqual({ observed: {} });
     expect(await client.echo({ value: "unchanged" })).toEqual({

@@ -508,6 +508,9 @@ app.dispatch("noArgs", undefined);
 ```
 
 inputを省略してmetadataだけを送信することもできます。
+この場合は本番の`AppsScriptTransport`と同じく`input`を`null`としてdispatchへ渡します。
+middlewareの`context.invocation.input`とhandlerのinputも`null`になります。
+metadataも省略した場合は、従来どおり`undefined`です。
 
 ```json
 {
