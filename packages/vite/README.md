@@ -400,7 +400,10 @@ POST /__gasboost/{rpcName}
 例えば、
 
 ```ts
-const app = new AppsScript().call("sum", (a: number, b: number) => a + b);
+const app = new AppsScript().call(
+  "sum",
+  ({ a, b }: { a: number; b: number }) => a + b,
+);
 
 export default app;
 ```
@@ -414,14 +417,14 @@ Content-Type: application/json
 
 ```json
 {
-  "args": [1, 2]
+  "input": { "a": 1, "b": 2 }
 }
 ```
 
 を送信すると、内部では次の dispatch が実行されます。
 
 ```ts
-app.dispatch("sum", 1, 2);
+app.dispatch("sum", { a: 1, b: 2 });
 ```
 
 レスポンス:
@@ -435,38 +438,54 @@ app.dispatch("sum", 1, 2);
 Request Body は次の形式です。
 
 ```ts
-{
-  args: unknown[];
-}
+type RpcRequestBody = {
+  input?: unknown;
+  metadata?: Record<string, unknown>;
+};
 ```
 
-例えば複数の引数を持つ RPC:
+業務データは単一の `input` として渡します。例えば:
 
 ```ts
-app.call(
-  "example",
-  (id: number, name: string, active: boolean, options: { value: number }) => {
-    // ...
-  },
-);
+app.call("example", (input: { id: number; name: string; active: boolean }) => {
+  // ...
+});
 ```
 
 に対して、
 
 ```json
 {
-  "args": [
-    1,
-    "Taro",
-    true,
-    {
-      "value": 4
-    }
-  ]
+  "input": { "id": 1, "name": "Taro", "active": true },
+  "metadata": {
+    "@my-app/tracing": { "traceId": "trace-1" }
+  }
 }
 ```
 
 のように送信できます。
+
+`metadata` は任意です。指定すると `app.dispatch(name, input, metadata)` の
+第3引数へそのまま渡され、middleware の `context.invocation.metadata` で参照できます。
+Vite はmetadataをinputへ混ぜず、そのキーや値の意味も解釈しません。
+metadata自体はオブジェクトである必要がありますが、内部の値のschemaは定義しません。
+
+`@gasboost/app` 5.2.0以降と`@gasboost/client` 0.5.0以降では、
+metadata providerとRPC単位のmetadataをLocal RPCでも利用できます。
+
+```ts
+const { client } = appsScriptClient<AppType>({
+  metadataProviders: [() => ({ "@my-app/tracing": { traceId: "trace-1" } })],
+});
+
+await client.example(
+  { id: 1, name: "Taro", active: true },
+  { metadata: { "@my-app/request": { id: "request-1" } } },
+);
+```
+
+開発時の自動差し替えによる`FetchTransport`もmetadataを維持します。
+未指定時は従来どおりinputだけをdispatchへ渡します。
 
 ### 引数なし RPC
 
@@ -479,14 +498,20 @@ POST /__gasboost/noArgs
 内部では次のように dispatch されます。
 
 ```ts
-app.dispatch("noArgs");
+app.dispatch("noArgs", undefined);
 ```
 
 明示的に送る場合は次でも構いません。
 
 ```json
+{}
+```
+
+inputを省略してmetadataだけを送信することもできます。
+
+```json
 {
-  "args": []
+  "metadata": { "@my-app/tracing": { "traceId": "trace-1" } }
 }
 ```
 
@@ -554,11 +579,12 @@ AppsScript.dispatch("sum", ...)
 
 ### 不正な Request Body
 
-JSON として不正な body や、`args` が配列でない body は `400` を返します。
+JSON として不正な body や、bodyがオブジェクトでない場合は `400` を返します。
+また、`metadata` に `null`・配列・文字列などを指定した場合も `400` を返します。
 
 ```json
 {
-  "args": "invalid"
+  "metadata": "invalid"
 }
 ```
 
@@ -568,7 +594,7 @@ JSON として不正な body や、`args` が配列でない body は `400` を�
 {
   "error": {
     "name": "InvalidRpcRequestError",
-    "message": "Invalid RPC request body. Expected { args: unknown[] }."
+    "message": "Invalid RPC request body. Expected metadata to be an object."
   }
 }
 ```

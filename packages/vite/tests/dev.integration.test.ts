@@ -157,6 +157,59 @@ function configureDevServer(plugin: Plugin, server: ViteDevServer) {
 }
 
 describe("gasboost dev", () => {
+  test.each([
+    {
+      name: "inputとmetadata",
+      input: { name: "Taro", metadata: "business-field" },
+    },
+    { name: "metadataのみ", input: undefined },
+    { name: "null input", input: null },
+  ])("$nameを分離してdispatchへ渡す", async ({ input }) => {
+    const metadata = {
+      "@example/tracing": { traceId: "trace-1" },
+      custom: [1, null, false, { nested: "value" }],
+    };
+    const dispatch = vi.fn(async () => ({ contents: "true" }));
+    const { dev } = gasboost({ entry: "src/server.ts" });
+    const { server, middleware } = createServer({ dispatch });
+    configureDevServer(dev, server as unknown as ViteDevServer);
+    const { response } = createResponse();
+
+    await middleware()(
+      createRequest({ url: "/__gasboost/example", body: { input, metadata } }),
+      response,
+      vi.fn(),
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(dispatch).toHaveBeenCalledWith("example", input, metadata);
+  });
+
+  test.each([null, [], "invalid", 1, false].map((metadata) => ({ metadata })))(
+    "metadataがobjectでない場合は400を返す: $metadata",
+    async ({ metadata }) => {
+      const dispatch = vi.fn();
+      const { dev } = gasboost({ entry: "src/server.ts" });
+      const { server, middleware, importModule } = createServer({ dispatch });
+      configureDevServer(dev, server as unknown as ViteDevServer);
+      const { response, body } = createResponse();
+
+      await middleware()(
+        createRequest({ body: { input: {}, metadata } }),
+        response,
+        vi.fn(),
+      );
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(body()).error).toMatchObject({
+        name: "InvalidRpcRequestError",
+        message: "Invalid RPC request body. Expected metadata to be an object.",
+      });
+      expect(importModule).not.toHaveBeenCalled();
+      expect(dispatch).not.toHaveBeenCalled();
+    },
+  );
+
   test("POST RPCを実行できる", async () => {
     const dispatch = vi.fn(async () => ({
       contents: JSON.stringify(3),

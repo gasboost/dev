@@ -1,4 +1,4 @@
-import type { AppsScript } from "@gasboost/app";
+import type { AppsScript, RpcMetadata } from "@gasboost/app";
 import type { IncomingMessage } from "node:http";
 import { pathToFileURL } from "node:url";
 import { type Plugin, isRunnableDevEnvironment } from "vite";
@@ -8,6 +8,7 @@ import { installGasRuntime } from "./runtime";
 
 type RpcRequestBody = {
   input: unknown | undefined;
+  metadata?: RpcMetadata;
 };
 
 class InvalidRpcRequestError extends Error {
@@ -174,7 +175,7 @@ export function appsScriptClient(options = {}) {
         }
 
         try {
-          const { input } = await readRequest(request);
+          const { input, metadata } = await readRequest(request);
 
           const environment = server.environments.ssr;
 
@@ -188,10 +189,11 @@ export function appsScriptClient(options = {}) {
             default: AppsScript;
           };
 
-          const result = await module.default.dispatch(
-            decodeURIComponent(rpcName),
-            input,
-          );
+          const name = decodeURIComponent(rpcName);
+          const result =
+            metadata === undefined
+              ? await module.default.dispatch(name, input)
+              : await module.default.dispatch(name, input, metadata);
 
           response.statusCode = 200;
           response.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -292,8 +294,25 @@ function readRequest(request: IncomingMessage): Promise<RpcRequestBody> {
         return;
       }
 
+      const metadata = "metadata" in body ? body.metadata : undefined;
+
+      if (
+        metadata !== undefined &&
+        (typeof metadata !== "object" ||
+          metadata === null ||
+          Array.isArray(metadata))
+      ) {
+        reject(
+          new InvalidRpcRequestError(
+            "Invalid RPC request body. Expected metadata to be an object.",
+          ),
+        );
+        return;
+      }
+
       resolve({
         input: "input" in body ? body.input : undefined,
+        metadata: metadata as RpcMetadata | undefined,
       });
     });
   });
