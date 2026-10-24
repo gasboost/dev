@@ -203,8 +203,8 @@ importers:
   packages/vite:
     dependencies:
       '@gasboost/app':
-        specifier: 5.1.0
-        version: 5.1.0
+        specifier: 5.2.0
+        version: 5.2.0
       '@gasboost/fake-core':
         specifier: workspace:^
         version: link:../fake-core
@@ -215,6 +215,9 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
     devDependencies:
+      '@gasboost/client':
+        specifier: 0.5.0
+        version: 0.5.0
       '@gasboost/sheetorm':
         specifier: ^3.4.0
         version: 3.4.0(zod@4.6.2)
@@ -330,8 +333,11 @@ packages:
   '@formatjs/intl@4.2.1':
     resolution: {integrity: sha512-GiL0cReencWQkhfJedNLMe0Aorb/wyTRJdi+hLgG9gsDPy4yw2N+EkMcijf5+oGKd5jde75tr5nujsPg78bUTw==}
 
-  '@gasboost/app@5.1.0':
-    resolution: {integrity: sha512-MMHBc7tlsjzzTPaC/0NPLlWOZMI+31fjr8RQi/vGg0wF5fjn+wX7k6qGENuk3HpWQMy7AisP2vrtg56p1GCyXQ==}
+  '@gasboost/app@5.2.0':
+    resolution: {integrity: sha512-wkxWsuwei4OnX19KWe9EL9/K89ZR1kUI5cTrMwbDuvymTXNsYwoE5PRHmnab7zjvbk24si8bImTGPOXAVNy7BQ==}
+
+  '@gasboost/client@0.5.0':
+    resolution: {integrity: sha512-kPARvI0Qsg758uxe1UQcGZhFXRiwTnn3iZWyKMIFaNnkXnzjHHaze1AmD27ZUnVMHqwPs/qOqpEq0XK6dWKLng==}
 
   '@gasboost/query@1.1.1':
     resolution: {integrity: sha512-9B75V4x8epOdeb5TzEeggfrTFvKPeulXeQkJb+hJdEM6gyHSjz8lwD9ubCLK/LINcIgmfkrVhYTcFYTtaPlb8w==}
@@ -4010,7 +4016,9 @@ snapshots:
       '@formatjs/icu-messageformat-parser': 3.5.18
       intl-messageformat: 11.2.15
 
-  '@gasboost/app@5.1.0': {}
+  '@gasboost/app@5.2.0': {}
+
+  '@gasboost/client@0.5.0': {}
 
   '@gasboost/query@1.1.1(zod@4.6.2)':
     dependencies:

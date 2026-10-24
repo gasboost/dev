@@ -202,6 +202,17 @@ describe("gasboost dev client transport", () => {
     expect(result.options.transport.constructor.name).toBe("FetchTransport");
   });
 
+  test("自動transportへの差し替えでもmetadataProvidersを維持する", async () => {
+    const { dev } = gasboost({ entry: "src/server.ts" });
+    const clientModule = await loadVirtualClient(dev);
+    const metadataProviders = [() => ({ arbitrary: { value: "metadata" } })];
+
+    const result = clientModule.appsScriptClient({ metadataProviders });
+
+    expect(result.options.metadataProviders).toBe(metadataProviders);
+    expect(result.options.transport.constructor.name).toBe("FetchTransport");
+  });
+
   test("自動FetchTransportはLocal RPC endpointを利用する", async () => {
     const { dev } = gasboost({
       entry: "src/server.ts",
