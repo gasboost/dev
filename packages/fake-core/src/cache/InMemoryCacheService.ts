@@ -1,16 +1,31 @@
 import { InMemoryCache } from "./InMemoryCache";
 
+export type InMemoryCacheServiceOptions = {
+  document?: Record<string, string>;
+  user?: Record<string, string>;
+  script?: Record<string, string>;
+};
+
 export class InMemoryCacheService
   implements GoogleAppsScript.Cache.CacheService
 {
-  constructor() {}
+  private readonly documentCache = new InMemoryCache();
+  private readonly userCache = new InMemoryCache();
+  private readonly scriptCache = new InMemoryCache();
+
+  constructor(options: InMemoryCacheServiceOptions = {}) {
+    this.documentCache.putAll(options.document ?? {});
+    this.userCache.putAll(options.user ?? {});
+    this.scriptCache.putAll(options.script ?? {});
+  }
+
   getDocumentCache(): InMemoryCache | null {
-    return new InMemoryCache();
+    return this.documentCache;
   }
   getUserCache(): InMemoryCache {
-    return new InMemoryCache();
+    return this.userCache;
   }
   getScriptCache(): InMemoryCache {
-    return new InMemoryCache();
+    return this.scriptCache;
   }
 }
