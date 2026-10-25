@@ -53,6 +53,15 @@ jobs:
       - name: Run package tests
         run: pnpm -r test
 
+      - name: Setup Java for Firebase RTDB Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Test E2E Browser Firebase with real Auth and RTDB Emulators
+        run: pnpm --filter @gasboost/vite test:e2e
+
       - name: Test E2E cli
         run: pnpm --filter @gasboost/cli test:e2e
 

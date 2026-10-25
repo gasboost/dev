@@ -317,8 +317,15 @@ VITE_FIREBASE_APP_ID=demo-app-id
 Consumer で対象を `optimizeDeps.include` に強制指定しないでください。
 
 Browser の回帰テストは実 Firebase SDK と Vite の依存事前バンドル、Playwright Chromium、Auth HTTP / RTDB WebSocket プロトコル fixture を利用します。
-実 Emulator プロセスや REDNOSE POS 自体を起動するテストではありません。
 初回は `pnpm --filter @gasboost/vite exec playwright install chromium`、その後 `pnpm --filter @gasboost/vite test` で実行できます。
+
+実 Firebase CLI の Auth / RTDB Emulator を使う E2E は `pnpm --filter @gasboost/vite test:e2e` で実行します（Java 21 以降と Chromium が必要）。
+`emulators:exec` が demo project の Emulator を起動・停止し、失敗時は非ゼロで終了します。CI でも必須チェックとして実行します。
+既存 Consumer 形式の初期化コードから Custom Token でサインインし、SheetDB の commit → Backend の同一 namespace への root PATCH →
+Rules で認証と custom claim を要求する Browser の `onValue` が `syncVersions/employees` の更新を受信するまでを検証します。
+未認証・権限不足の read と Browser の write が拒否されることも確認し、Emulator 宛の HTTP / WebSocket 通信はモックしません。
+専用ポート（Auth 19099 / RTDB 19000 / hub 19440 / logging 19450）を空けて実行してください。
+この E2E はリポジトリ内の Consumer fixture を使用し、REDNOSE POS 自体は起動しません。
 
 ---
 
