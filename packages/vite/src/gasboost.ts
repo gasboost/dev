@@ -10,6 +10,12 @@ export interface GasboostOptions {
   localRpc?: {
     override?: boolean;
     database?: Record<string, Record<string, Record<string, unknown>[]>>;
+    auth?: {
+      emulator: {
+        host?: string;
+        port?: number;
+      };
+    };
     rtdb?: {
       emulator: {
         namespace: string;

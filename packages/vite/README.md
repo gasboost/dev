@@ -251,10 +251,81 @@ const { build, dev } = gasboost({
 
 Emulator の起動は Firebase CLI で行ってください。未起動・HTTP エラー時は Local RPC に通信エラーを返し、本番へのフォールバックは行いません。
 接続可能な host は Emulator Transport が許可するループバックアドレスです。
-フロントエンドの `connectDatabaseEmulator()` / `connectAuthEmulator()`、署名鍵や Security Rules の準備は Consumer 側で行います。
-Browser の Firebase SDK や認証設定は自動変更しません。
+署名鍵や Security Rules の準備は Consumer 側で行います。
+同じ設定で Browser の `firebase/database` も Emulator へ自動接続します（下記）。
 
-未指定時は RTDB の import・動作を変更しません。本番 build とフロントエンドの bundle には、この差し替えや Emulator 実装を含めません。
+未指定時は RTDB の import・動作を変更しません。本番 build には、この差し替えや Emulator 実装を追加しません。
+
+### Browser Firebase Auth / RTDB Emulator（1.6.0 以降）
+
+`gasboost:dev` は、設定した Firebase SDK の **package root import** を Browser の serve 時だけ差し替えます。
+Consumer 自身が `firebase` をインストールしてください。Firebase を使わない場合は追加依存不要です。
+
+```ts
+const { build, dev } = gasboost({
+  entry: "src/backend/main.ts",
+  localRpc: {
+    rtdb: { emulator: { namespace: "demo-my-app" } }, // Backend + Browser、既定 port: 9000
+    auth: { emulator: { host: "127.0.0.1", port: 9099 } }, // Browser のみ
+  },
+});
+```
+
+Auth と RTDB は独立した opt-in です。host の既定値は `127.0.0.1`、ループバックアドレスのみ指定できます。
+`localRpc.override: false`、`localRpc.database` と併用できます。Vite の mode 名に依存せず、`vite build --mode staging` / production build では差し替えません。
+
+Consumer の Firebase 初期化・利用コードは変更不要です。
+
+```ts
+import { initializeApp } from "firebase/app";
+import { getAuth, signInWithCustomToken } from "firebase/auth";
+import { getDatabase, ref, onValue } from "firebase/database";
+
+const app = initializeApp({
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+});
+export const firebaseAuth = getAuth(app);
+export const firebaseDatabase = getDatabase(app);
+```
+
+`getAuth(app?)` / `initializeAuth(app, deps)` の直後に同期的に `connectAuthEmulator`、
+`getDatabase(app?, url?)` の直後に `connectDatabaseEmulator` を一度だけ実行し、元の SDK の同一インスタンスを返します。
+他の export は元の SDK をそのまま再エクスポートします。接続済みインスタンスは仮想モジュール再読込時も記録し、設定が変わった場合はページ再読込を要求します。
+既に SDK の通信が始まっている場合の接続エラーは伝播し、本番 Firebase へフォールバックしません。Emulator 未起動時も SDK は Emulator への接続を試み続けるかエラーを返します。
+
+`.env.development` 等は Vite 標準の仕組みで Consumer が管理します。Plugin は `.env` や FirebaseApp の設定を書き換えません。
+例えば以下では namespace も `demo-my-app` とし、`firebase emulators:start --only auth,database --project demo-my-app` で起動します。
+
+```dotenv
+VITE_FIREBASE_PROJECT_ID=demo-my-app
+VITE_FIREBASE_API_KEY=demo-api-key
+VITE_FIREBASE_AUTH_DOMAIN=demo-my-app.firebaseapp.com
+VITE_FIREBASE_DATABASE_URL=https://demo-my-app.firebaseio.com
+VITE_FIREBASE_APP_ID=demo-app-id
+```
+
+**databaseURL のデータベース名と `localRpc.rtdb.emulator.namespace` を一致させてください。**
+`getDatabase` の明示 URL も検査し、不一致時はエラーにします。例えば `demo-my-app-default-rtdb` という DB 名なら namespace も同名にします。
+これにより Browser と Backend が別の namespace を読む事故を防ぎます。
+
+対象は `firebase/auth` / `firebase/database` です。Compat SDK、別 import 経路、事前ビルド済みの依存に内包された Firebase 初期化は対象外です。
+ラッパー対象の root import を `optimizeDeps.exclude` に追加し、内部 SDK の依存事前バンドルは維持します。
+Consumer で対象を `optimizeDeps.include` に強制指定しないでください。
+
+Browser の回帰テストは実 Firebase SDK と Vite の依存事前バンドル、Playwright Chromium、Auth HTTP / RTDB WebSocket プロトコル fixture を利用します。
+初回は `pnpm --filter @gasboost/vite exec playwright install chromium`、その後 `pnpm --filter @gasboost/vite test` で実行できます。
+
+実 Firebase CLI の Auth / RTDB Emulator を使う E2E は `pnpm --filter @gasboost/vite test:e2e` で実行します（Java 21 以降と Chromium が必要）。
+`emulators:exec` が demo project の Emulator を起動・停止し、失敗時は非ゼロで終了します。CI でも必須チェックとして実行します。
+既存 Consumer 形式の初期化コードから Custom Token でサインインし、SheetDB の commit → Backend の同一 namespace への root PATCH →
+Rules で認証と custom claim を要求する Browser の `onValue` が `syncVersions/employees` の更新を受信するまでを検証します。
+未認証・権限不足の read と Browser の write が拒否されることも確認し、Emulator 宛の HTTP / WebSocket 通信はモックしません。
+専用ポート（Auth 19099 / RTDB 19000 / hub 19440 / logging 19450）を空けて実行してください。
+この E2E はリポジトリ内の Consumer fixture を使用し、REDNOSE POS 自体は起動しません。
 
 ---
 

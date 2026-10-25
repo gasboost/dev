@@ -1,0 +1,9 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "syncVersions": {
+      ".read": "auth != null && auth.uid === 'e2e-reader' && auth.token.reader === true"
+    }
+  }
+}

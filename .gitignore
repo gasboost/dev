@@ -1,5 +1,7 @@
 node_modules/
 dist/
 *.tgz
+firebase-debug.log*
+database-debug.log*
 .DS_Store
 .gasboost-cli-e2e-*
