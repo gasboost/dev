@@ -167,7 +167,9 @@ jobs:
 
       - name: Test vite
         if: ${{ needs.check-versions.outputs.publish-vite == 'true' }}
-        run: pnpm --filter @gasboost/vite test
+        run: |
+          pnpm --filter @gasboost/vite exec playwright install --with-deps chromium
+          pnpm --filter @gasboost/vite test
 
       - name: Build vite
         if: ${{ needs.check-versions.outputs.publish-vite == 'true' }}

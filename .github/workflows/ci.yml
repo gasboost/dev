@@ -45,7 +45,12 @@ jobs:
       - name: Typecheck packages
         run: pnpm -r typecheck
 
-      - name: Test packages
+      - name: Install Chromium for Firebase browser tests
+        # Browser Firebase tests exercise the real SDK through Vite's optimizer.
+        # Install Chromium explicitly so a fresh CI runner can run them.
+        run: pnpm --filter @gasboost/vite exec playwright install --with-deps chromium
+
+      - name: Run package tests
         run: pnpm -r test
 
       - name: Test E2E cli

@@ -1,12 +1,14 @@
 import type { AppsScript, RpcMetadata } from "@gasboost/app";
 import { NodeUrlFetchApp } from "@gasboost/fake-node";
 import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import type { IncomingMessage } from "node:http";
 import { pathToFileURL } from "node:url";
 import { type Plugin, isRunnableDevEnvironment } from "vite";
 import type { GasboostOptions } from "./gasboost";
 import { createLocalDatabase } from "./database";
 import { createRtdbModule } from "./rtdb";
+import { createFirebaseModule, firebaseEndpoint } from "./firebase";
 import { installGasRuntime } from "./runtime";
 
 type RpcRequestBody = {
@@ -37,6 +39,12 @@ export function createDevPlugin(options: GasboostOptions): Plugin {
   let resolvedSheetormModuleId: string | undefined;
   let resolvedRtdbModuleId: string | undefined;
   const emulator = options.localRpc?.rtdb?.emulator;
+  const authEmulator = options.localRpc?.auth?.emulator;
+  const firebaseModules = new Map<string, string>();
+  const firebaseImports = [
+    ...(authEmulator ? ["firebase/auth"] : []),
+    ...(emulator ? ["firebase/database"] : []),
+  ];
   const database = options.localRpc?.database
     ? createLocalDatabase(options.localRpc.database)
     : undefined;
@@ -46,10 +54,37 @@ export function createDevPlugin(options: GasboostOptions): Plugin {
     apply: "serve",
     enforce: "pre",
 
-    config() {
-      if (database || emulator) {
+    config(config) {
+      if (authEmulator) firebaseEndpoint(authEmulator, 9099);
+      if (emulator) {
+        firebaseEndpoint(emulator, 9000);
+        if (!emulator.namespace?.trim()) {
+          throw new Error(
+            "Firebase RTDB Emulator namespace must not be empty.",
+          );
+        }
+      }
+      if (database || emulator || authEmulator) {
         // Vite externalizes dependencies before resolveId unless opted out.
         return {
+          optimizeDeps: {
+            exclude: firebaseImports,
+            // Prebundle the shared implementation, not the decorated entry.
+            // This also keeps SDK imports in other dependencies on one copy.
+            include: firebaseImports
+              .filter((id) => {
+                try {
+                  createRequire(
+                    resolve(config.root ?? ".", "package.json"),
+                  ).resolve(id);
+                  return true;
+                } catch {
+                  // Backend-only consumers need not install the browser SDK.
+                  return false;
+                }
+              })
+              .map((id) => `${id} > @${id}`),
+          },
           ssr: {
             noExternal: [
               ...(database ? [SHEETORM_MODULE_ID] : []),
@@ -71,6 +106,20 @@ export function createDevPlugin(options: GasboostOptions): Plugin {
     },
 
     async resolveId(source, importer, resolveOptions) {
+      if (
+        this.environment.config.consumer === "client" &&
+        firebaseImports.includes(source)
+      ) {
+        const resolved = await this.resolve(source, importer, {
+          ...resolveOptions,
+          skipSelf: true,
+        });
+        if (!resolved)
+          throw new Error(`${source} could not be resolved from the consumer.`);
+        const id = `\0gasboost:${source}`;
+        firebaseModules.set(id, resolved.id);
+        return id;
+      }
       if (
         emulator &&
         source === RTDB_MODULE_ID &&
@@ -122,6 +171,12 @@ export function createDevPlugin(options: GasboostOptions): Plugin {
     },
 
     load(id) {
+      const firebaseModule = firebaseModules.get(id);
+      if (firebaseModule && this.environment.config.consumer === "client") {
+        return id === "\0gasboost:firebase/auth"
+          ? createFirebaseModule(firebaseModule, "auth", authEmulator!)
+          : createFirebaseModule(firebaseModule, "database", emulator!);
+      }
       if (id === VIRTUAL_RTDB_MODULE_ID && emulator) {
         if (this.environment.name !== "ssr") return null;
         if (!resolvedRtdbModuleId) {
