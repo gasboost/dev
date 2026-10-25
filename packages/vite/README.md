@@ -215,6 +215,47 @@ seed の再投入は行いません。設定・スキーマを変更するとき
 未指定時の挙動は従来どおりです。フロントエンドと本番 build は元の SheetORM を使用し、
 サーバー専用の seed と差し替えコードはフロントエンド bundle に入りません。
 
+### `localRpc.rtdb.emulator`
+
+`@gasboost/realtime-firebase` の本番用 Transport を、開発 SSR 内でのみ RTDB Emulator 用に差し替えます。
+明示的な opt-in で、Consumer には `@gasboost/realtime-firebase@^0.9.0` 以降が必要です。
+RTDB を使わない Consumer では、このパッケージのインストールや import は不要です。
+
+```ts
+const { build, dev } = gasboost({
+  entry: "src/backend/main.ts",
+  localRpc: {
+    database: {
+      SPREADSHEET_ID: { employees: [] },
+    },
+    rtdb: {
+      emulator: {
+        namespace: "demo-my-app-default-rtdb", // 必須
+        host: "127.0.0.1", // 省略時の値
+        port: 9000, // 省略時の値
+      },
+    },
+  },
+});
+```
+
+本番 Backend の `new FirebaseRtdbRestTransport({ databaseUrl, urlFetchApp, cacheService, credentialsProvider })` は変更不要です。
+互換ラッパーが元の `urlFetchApp` と上記 Emulator 設定を `FirebaseRtdbEmulatorTransport` へ渡します。
+`databaseUrl`・`cacheService`・`credentialsProvider` は使用せず、Google OAuth や本番 RTDB へ通信しません。
+`UrlFetchApp` グローバルには opt-in 時のみ `NodeUrlFetchApp` を用意し、`runtime.UrlFetchApp` の明示指定を優先します。
+
+`SheetDB.afterCommit` から既存の `FirebaseRtdb.publish()` を呼ぶと、同じ Consumer コードで
+`syncVersions/<table>` の version が指定 namespace へ PATCH されます。
+`FirebaseRtdb`・`PropertiesVersionStore`・`FirebaseCustomToken` 等の他の export と `/client` は維持します。
+`localRpc.database`、`localRpc.override: false` とも併用できます。
+
+Emulator の起動は Firebase CLI で行ってください。未起動・HTTP エラー時は Local RPC に通信エラーを返し、本番へのフォールバックは行いません。
+接続可能な host は Emulator Transport が許可するループバックアドレスです。
+フロントエンドの `connectDatabaseEmulator()` / `connectAuthEmulator()`、署名鍵や Security Rules の準備は Consumer 側で行います。
+Browser の Firebase SDK や認証設定は自動変更しません。
+
+未指定時は RTDB の import・動作を変更しません。本番 build とフロントエンドの bundle には、この差し替えや Emulator 実装を含めません。
+
 ---
 
 # Build Plugin

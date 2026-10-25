@@ -218,18 +218,24 @@ importers:
       '@gasboost/client':
         specifier: 0.5.0
         version: 0.5.0
+      '@gasboost/realtime-firebase':
+        specifier: ^0.9.0
+        version: 0.9.0(zod@4.6.2)
       '@gasboost/sheetorm':
         specifier: ^3.4.0
         version: 3.4.0(zod@4.6.2)
       '@types/google-apps-script':
         specifier: ^2.0.12
         version: 2.0.13
+      '@types/node':
+        specifier: ^24.13.4
+        version: 24.13.4
       vite:
         specifier: ^8.2.2
-        version: 8.3.0(@types/node@26.6.3)(jiti@2.7.0)(yaml@2.9.1)
+        version: 8.3.0(@types/node@24.13.4)(jiti@2.7.0)(yaml@2.9.1)
       vitest:
         specifier: ^5.0.0
-        version: 5.0.0(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(vite@8.3.0(@types/node@26.6.3)(jiti@2.7.0)(yaml@2.9.1))
+        version: 5.0.0(@opentelemetry/api@1.9.1)(@types/node@24.13.4)(vite@8.3.0(@types/node@24.13.4)(jiti@2.7.0)(yaml@2.9.1))
       zod:
         specifier: ^4.6.2
         version: 4.6.2
@@ -344,6 +350,9 @@ packages:
 
   '@gasboost/realtime-firebase@0.1.1':
     resolution: {integrity: sha512-RF0UX+uwDFgisT6zPSmNneIreK/CB3BjDxKZzr9Dh4YQZxRL3ad65cK0ph4WVJW5S2dJKbonYwdjClDwACCK1w==}
+
+  '@gasboost/realtime-firebase@0.9.0':
+    resolution: {integrity: sha512-sOI1s1EB8PBIZ8pnCuZqgEjbswMe5zUJzXmlsFyQ7Kn7t2SZu5R+tYUbiKZ5Xw1nLhjpQPqqi1Xr5Ai/jDf1wg==}
 
   '@gasboost/rls@0.2.0':
     resolution: {integrity: sha512-UJVGQ5rZae9d76OUuNYxNS25aJ1zfGxTENsOQvuS3vXStFHdl88QFWoQ654iNzoxDGufEPx1/aIeTP+HRgPV0Q==}
@@ -4031,6 +4040,12 @@ snapshots:
       '@gasboost/rls': 0.2.0
       zod: 4.6.2
 
+  '@gasboost/realtime-firebase@0.9.0(zod@4.6.2)':
+    dependencies:
+      '@gasboost/table': 0.2.0(zod@4.6.2)
+    transitivePeerDependencies:
+      - zod
+
   '@gasboost/rls@0.2.0':
     dependencies:
       zod: 4.6.2
@@ -4720,15 +4735,6 @@ snapshots:
       magic-string: 1.3.1
     optionalDependencies:
       vite: 8.3.0(@types/node@24.13.4)(jiti@2.7.0)(yaml@2.9.1)
-
-  '@vitest/mocker@5.0.0(vite@8.3.0(@types/node@26.6.3)(jiti@2.7.0)(yaml@2.9.1))':
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.31
-      '@vitest/spy': 5.0.0
-      estree-walker: 3.0.3
-      magic-string: 1.3.1
-    optionalDependencies:
-      vite: 8.3.0(@types/node@26.6.3)(jiti@2.7.0)(yaml@2.9.1)
 
   '@vitest/pretty-format@4.1.11':
     dependencies:
@@ -7692,28 +7698,6 @@ snapshots:
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
       '@types/node': 24.13.4
-    transitivePeerDependencies:
-      - msw
-
-  vitest@5.0.0(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(vite@8.3.0(@types/node@26.6.3)(jiti@2.7.0)(yaml@2.9.1)):
-    dependencies:
-      '@types/chai': 5.2.3
-      '@vitest/mocker': 5.0.0(vite@8.3.0(@types/node@26.6.3)(jiti@2.7.0)(yaml@2.9.1))
-      chai: 6.2.2
-      es-module-lexer: 2.3.2
-      expect-type: 1.4.0
-      magic-string: 1.3.1
-      obug: 2.2.1
-      picomatch: 4.0.7
-      std-env: 4.2.0
-      tinybench: 6.1.4
-      tinyexec: 1.3.0
-      tinyglobby: 0.2.17
-      vite: 8.3.0(@types/node@26.6.3)(jiti@2.7.0)(yaml@2.9.1)
-      why-is-node-running: 2.3.0
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.1
-      '@types/node': 26.6.3
     transitivePeerDependencies:
       - msw
 

@@ -1,9 +1,12 @@
 import type { AppsScript, RpcMetadata } from "@gasboost/app";
+import { NodeUrlFetchApp } from "@gasboost/fake-node";
+import { createRequire } from "node:module";
 import type { IncomingMessage } from "node:http";
 import { pathToFileURL } from "node:url";
 import { type Plugin, isRunnableDevEnvironment } from "vite";
 import type { GasboostOptions } from "./gasboost";
 import { createLocalDatabase } from "./database";
+import { createRtdbModule } from "./rtdb";
 import { installGasRuntime } from "./runtime";
 
 type RpcRequestBody = {
@@ -23,12 +26,17 @@ const VIRTUAL_CLIENT_MODULE_ID = "\0gasboost:client";
 const LOCAL_RPC_ENDPOINT = "/__gasboost";
 const SHEETORM_MODULE_ID = "@gasboost/sheetorm";
 const VIRTUAL_SHEETORM_MODULE_ID = "\0gasboost:sheetorm";
+const RTDB_MODULE_ID = "@gasboost/realtime-firebase";
+const RTDB_EMULATOR_MODULE_ID = `${RTDB_MODULE_ID}/emulator`;
+const VIRTUAL_RTDB_MODULE_ID = "\0gasboost:rtdb";
 
 export function createDevPlugin(options: GasboostOptions): Plugin {
   const { runtime, template } = options;
 
   let resolvedClientModuleId: string | undefined;
   let resolvedSheetormModuleId: string | undefined;
+  let resolvedRtdbModuleId: string | undefined;
+  const emulator = options.localRpc?.rtdb?.emulator;
   const database = options.localRpc?.database
     ? createLocalDatabase(options.localRpc.database)
     : undefined;
@@ -39,13 +47,44 @@ export function createDevPlugin(options: GasboostOptions): Plugin {
     enforce: "pre",
 
     config() {
-      if (database) {
+      if (database || emulator) {
         // Vite externalizes dependencies before resolveId unless opted out.
-        return { ssr: { noExternal: [SHEETORM_MODULE_ID] } };
+        return {
+          ssr: {
+            noExternal: [
+              ...(database ? [SHEETORM_MODULE_ID] : []),
+              ...(emulator ? [RTDB_MODULE_ID] : []),
+            ],
+            // noExternal matches package names, including subpaths. Preserve
+            // native loading for the unmodified public RTDB subpaths.
+            ...(emulator
+              ? {
+                  external: [
+                    `${RTDB_MODULE_ID}/client`,
+                    RTDB_EMULATOR_MODULE_ID,
+                  ],
+                }
+              : {}),
+          },
+        };
       }
     },
 
     async resolveId(source, importer, resolveOptions) {
+      if (
+        emulator &&
+        source === RTDB_MODULE_ID &&
+        this.environment.name === "ssr"
+      ) {
+        const resolved = await this.resolve(source, importer, {
+          ...resolveOptions,
+          skipSelf: true,
+        });
+        if (!resolved) return null;
+        resolvedRtdbModuleId = resolved.id;
+        return VIRTUAL_RTDB_MODULE_ID;
+      }
+
       if (
         database &&
         source === SHEETORM_MODULE_ID &&
@@ -83,16 +122,38 @@ export function createDevPlugin(options: GasboostOptions): Plugin {
     },
 
     load(id) {
+      if (id === VIRTUAL_RTDB_MODULE_ID && emulator) {
+        if (this.environment.name !== "ssr") return null;
+        if (!resolvedRtdbModuleId) {
+          throw new Error("@gasboost/realtime-firebase could not be resolved.");
+        }
+        let emulatorModule: string;
+        try {
+          // Resolve from the consumer's package, without loading RTDB in Vite.
+          emulatorModule = createRequire(resolvedRtdbModuleId).resolve(
+            RTDB_EMULATOR_MODULE_ID,
+          );
+        } catch (cause) {
+          throw new Error(
+            "Local RPC RTDB emulator requires @gasboost/realtime-firebase@^0.9.0 with the /emulator export.",
+            { cause },
+          );
+        }
+        return createRtdbModule(
+          nativeModuleBridge(resolvedRtdbModuleId),
+          nativeModuleBridge(emulatorModule),
+          emulator,
+        );
+      }
+
       if (id === VIRTUAL_SHEETORM_MODULE_ID && database) {
         if (this.environment.name !== "ssr") return null;
         if (!resolvedSheetormModuleId) {
           throw new Error("@gasboost/sheetorm could not be resolved.");
         }
-        // A native module bridge keeps the original package external even when
-        // Vite's noExternal setting routes its public import through our shim.
-        const bridge = `export * from ${JSON.stringify(pathToFileURL(resolvedSheetormModuleId).href)};`;
-        const original = `data:text/javascript;base64,${Buffer.from(bridge).toString("base64")}`;
-        return database.moduleSource(original);
+        return database.moduleSource(
+          nativeModuleBridge(resolvedSheetormModuleId),
+        );
       }
 
       if (id !== VIRTUAL_CLIENT_MODULE_ID) {
@@ -136,7 +197,11 @@ export function appsScriptClient(options = {}) {
     configureServer(server) {
       // Resolve the GAS global in unchanged `new SheetGateway(Sheets!)` code.
       // The local gateway ignores it; no Sheets API emulator is installed.
-      installGasRuntime(database ? { Sheets: undefined, ...runtime } : runtime);
+      installGasRuntime({
+        ...(database ? { Sheets: undefined } : {}),
+        ...(emulator ? { UrlFetchApp: new NodeUrlFetchApp() } : {}),
+        ...runtime,
+      });
       database?.install();
 
       server.middlewares.use(async (request, response, next) => {
@@ -246,6 +311,13 @@ export function appsScriptClient(options = {}) {
       return transformed;
     },
   };
+}
+
+// Native bridges keep CJS dependencies external while their public root
+// imports are routed through Vite's SSR virtual modules.
+function nativeModuleBridge(id: string): string {
+  const bridge = `export * from ${JSON.stringify(pathToFileURL(id).href)};`;
+  return `data:text/javascript;base64,${Buffer.from(bridge).toString("base64")}`;
 }
 
 function escapeRegExp(value: string): string {

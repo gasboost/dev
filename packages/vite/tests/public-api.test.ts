@@ -62,6 +62,22 @@ test("build と dev を返す", () => {
   expect(dev.name).toBe("gasboost:dev");
 });
 
+test("RTDB Emulatorはnamespace必須でhostとportを省略できる", () => {
+  const options: GasboostOptions = {
+    entry: "src/main.ts",
+    localRpc: { rtdb: { emulator: { namespace: "demo-vite" } } },
+  };
+  expect(options.localRpc?.rtdb?.emulator.namespace).toBe("demo-vite");
+  type Emulator = NonNullable<
+    NonNullable<GasboostOptions["localRpc"]>["rtdb"]
+  >["emulator"];
+  expectTypeOf<Emulator>().toEqualTypeOf<{
+    namespace: string;
+    host?: string;
+    port?: number;
+  }>();
+});
+
 test("dev は serve のみで動作する", () => {
   const { dev } = gasboost({
     entry: "src/server.ts",
