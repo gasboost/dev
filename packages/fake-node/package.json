@@ -1,6 +1,6 @@
 {
   "name": "@gasboost/fake-node",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "This package provides a fake implementation of Google Apps Script built-in services for testing purposes.",
   "license": "MIT",
   "author": "tiger-oshima",
@@ -47,7 +47,8 @@
     ".": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "examples"
   ],
   "publishConfig": {
     "access": "public"
