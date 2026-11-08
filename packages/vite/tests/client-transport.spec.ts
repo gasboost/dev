@@ -40,7 +40,7 @@ export function appsScriptClient(options = {}) {
   };
 }
 
-export const marker = "client-export";
+export function withMetadataProviders(client) { return client; }
 `;
 
   return `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
@@ -289,7 +289,7 @@ describe("gasboost dev client transport", () => {
 
     const clientModule = await loadVirtualClient(dev);
 
-    expect(clientModule.marker).toBe("client-export");
+    expect(clientModule.withMetadataProviders("client")).toBe("client");
     expect(clientModule.FetchTransport).toBeDefined();
   });
 
