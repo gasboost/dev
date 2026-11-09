@@ -224,12 +224,19 @@ export function createDevPlugin(options: GasboostOptions): Plugin {
       const overrideLocalRpc = options.localRpc?.override !== false;
 
       return `
-import {
-  appsScriptClient as originalAppsScriptClient,
-  FetchTransport,
-} from ${clientModuleId};
+import * as originalClient from ${clientModuleId};
 
-export * from ${clientModuleId};
+const originalAppsScriptClient = originalClient.appsScriptClient;
+
+// Explicit bindings survive Vite's CommonJS interop for the client package.
+// Namespace access also allows older clients without the newer APIs.
+export const {
+  AppsScriptHistoryPipeline,
+  AppsScriptRpcError,
+  AppsScriptTransport,
+  FetchTransport,
+  withMetadataProviders,
+} = originalClient;
 
 export function appsScriptClient(options = {}) {
   return originalAppsScriptClient({

@@ -806,6 +806,11 @@ URL encoded な RPC 名も decode されます。
 
 ## Client Transport
 
+1.6.1 では、開発用の仮想モジュールから公開 API を明示的に再 export し、
+CommonJS 形式の `@gasboost/client@0.6.0` が提供する `AppsScriptRpcError` なども
+ブラウザで名前付き import できるように修正しました。Local RPC の transport
+差し替えと Production build の動作は変わりません。
+
 `@gasboost/client` を利用している場合、dev plugin はローカル開発時の transport を自動で Local RPC に切り替えます。
 
 アプリケーション側では development / production を判定する必要はありません。
