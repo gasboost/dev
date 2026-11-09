@@ -39,7 +39,13 @@ async function start(
     configFile: false,
     logLevel: "silent",
     plugins: [dev],
-    server: { port: 0, host: "127.0.0.1" },
+    server: {
+      port: 0,
+      host: "127.0.0.1",
+      // These tests inspect transformed imports without a browser to finish
+      // the dependency crawl. Avoid speculative requests blocking close().
+      preTransformRequests: false,
+    },
   });
   servers.push(server);
   await server.listen();
