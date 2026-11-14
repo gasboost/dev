@@ -2,149 +2,78 @@ import type { ProjectFragment } from "../fragment.js";
 
 export function databaseFragment({
   authentication,
+  realtime,
 }: {
-  readonly authentication: boolean;
+  authentication: boolean;
+  realtime: boolean;
 }): ProjectFragment {
   return {
-    files: {
-      "src/shared/tables.ts": renderSharedTables(authentication),
-      "src/backend/lib/db.ts": renderDatabase(authentication),
-    },
-
     dependencies: {
-      "@gasboost/sheetorm": "^3.1.0",
-      "@gasboost/table": "^0.1.0",
-      zod: "^4.6.5",
+      "@gasboost/sheetorm": "^4.0.0",
+      "@gasboost/table": "^0.2.0",
+      zod: "^4.6.7",
     },
-  };
-}
+    files: {
+      "src/shared/tables.ts": authentication
+        ? `import { createAuthTables, createAuthorizationTables } from "@gasboost/auth";
 
-function renderSharedTables(authentication: boolean): string {
-  const imports = [
-    'import { defineTable } from "@gasboost/table";',
-    'import { z } from "zod";',
-  ];
-
-  if (authentication) {
-    imports.unshift('import { createAuthTables } from "@gasboost/auth";');
-  }
-
-  const authTables = authentication
-    ? `
 export const authTables = createAuthTables();
+export const authorizationTables = createAuthorizationTables();
+export const tables = [authTables.user, authTables.account, authTables.passwordReset,
+  authorizationTables.role, authorizationTables.permission] as const;
 `
-    : "";
+        : `import type { KeyedTableDefinition } from "@gasboost/table";
 
-  return `${imports.join("\n")}
-${authTables}
-export const itemsTable = defineTable({
-  name: "items",
-
-  schema: z.object({
-    id: z.string(),
-    ownerId: z.string(),
-    value: z.string(),
-  }),
-
-  primaryKey: "id",
-});
-`;
-}
-
-function renderDatabase(authentication: boolean): string {
-  const sharedImport = authentication
-    ? `import { authTables, itemsTable } from "../../shared/tables";`
-    : `import { itemsTable } from "../../shared/tables";`;
-
-  const authTableDeclarations = authentication
-    ? `
-const userTable = new SheetTable({
-  ...authTables.user,
-  dbId: spreadsheetId,
-});
-
-const accountTable = new SheetTable({
-  ...authTables.account,
-  dbId: spreadsheetId,
-});
-
-const passwordResetTable = new SheetTable({
-  ...authTables.passwordReset,
-  dbId: spreadsheetId,
-});
-`
-    : "";
-
-  const tables = authentication
-    ? `const tables = [
-  itemsSheetTable,
-  userTable,
-  accountTable,
-  passwordResetTable,
-] as const;`
-    : `const tables = [
-  itemsSheetTable,
-] as const;`;
-
-  return `import {
-  SheetDB,
-  SheetGateway,
-  SheetTable,
-} from "@gasboost/sheetorm";
-${sharedImport}
+// Add shared application table definitions here.
+export const tables: readonly KeyedTableDefinition[] = [];
+`,
+      "src/backend/lib/sheets.ts": `import { SheetGateway, SheetTable } from "@gasboost/sheetorm";
+${authentication ? 'import { authTables, authorizationTables } from "../../shared/tables";' : 'import { tables } from "../../shared/tables";'}
 
 function resolveSpreadsheetId(): string {
-  const configuredSpreadsheetId =
-    PropertiesService
-      .getScriptProperties()
-      .getProperty("GASBOOST_SPREADSHEET_ID");
-
-  if (
-    configuredSpreadsheetId !== null &&
-    configuredSpreadsheetId.length > 0
-  ) {
-    return configuredSpreadsheetId;
-  }
-
-  /*
-   * Container-bound Apps Script projects may use their active
-   * spreadsheet. The local SpreadsheetAppStub also provides a fixed
-   * active spreadsheet ID, which keeps local development zero-config.
-   */
-  const activeSpreadsheetId =
-    SpreadsheetApp.getActive()?.getId();
-
-  if (
-    activeSpreadsheetId !== undefined &&
-    activeSpreadsheetId !== null &&
-    activeSpreadsheetId.length > 0
-  ) {
-    return activeSpreadsheetId;
-  }
-
-  throw new Error(
-    "Spreadsheet ID is not configured. " +
-      "Set GASBOOST_SPREADSHEET_ID in Apps Script Script Properties.",
-  );
+  const configured = PropertiesService.getScriptProperties().getProperty("GASBOOST_SPREADSHEET_ID");
+  const id = configured || SpreadsheetApp.getActive()?.getId();
+  if (!id) throw new Error("Set GASBOOST_SPREADSHEET_ID in Script Properties.");
+  return id;
 }
-
 export const spreadsheetId = resolveSpreadsheetId();
-
-const itemsSheetTable = new SheetTable({
-  ...itemsTable,
-  dbId: spreadsheetId,
-  autoNumbering: "uuid",
-});
-${authTableDeclarations}
-${tables}
+export const sheetTables = ${
+        authentication
+          ? `[
+  new SheetTable({ ...authTables.user, dbId: spreadsheetId }),
+  new SheetTable({ ...authTables.account, dbId: spreadsheetId }),
+  new SheetTable({ ...authTables.passwordReset, dbId: spreadsheetId }),
+  new SheetTable({ ...authorizationTables.role, dbId: spreadsheetId }),
+  new SheetTable({ ...authorizationTables.permission, dbId: spreadsheetId }),
+] as const`
+          : "tables.map(table => new SheetTable({ ...table, dbId: spreadsheetId }))"
+      };
+export const sheetGateway = new SheetGateway(Sheets!);
+`,
+      "src/backend/lib/db.ts": `import { SheetDB } from "@gasboost/sheetorm";
+import { sheetTables, sheetGateway } from "./sheets";
+${realtime ? 'import { rtdb } from "./rtdb";\nimport { realtimeTables } from "../../shared/realtime";' : ""}
 
 export const db = new SheetDB({
-  tables,
-  gateway: new SheetGateway(Sheets!),
+  tables: sheetTables,
+  gateway: sheetGateway,
   cacheService: CacheService,
   utilities: Utilities,
-});
-
+  lockService: LockService,
+${realtime ? "  afterCommit: changes => rtdb.publish(changes.filter(change => realtimeTables.some(table => table.name === change.table))),\n" : ""}});
 export type DB = typeof db;
-`;
+`,
+      "tests/mocks/db.ts": `import { vi } from "vitest";
+
+vi.mock("../../src/backend/lib/sheets", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/backend/lib/sheets")>();
+  const { InMemoryDataStore, InMemoryGateway } = await import("@gasboost/sheetorm");
+  const store = new InMemoryDataStore(new Map(actual.sheetTables.map(table => [
+    table.dbId + ":" + table.name, [Object.keys(table.schema.shape)],
+  ])));
+  return { ...actual, sheetGateway: new InMemoryGateway(store) };
+});
+`,
+    },
+  };
 }

@@ -1,6 +1,6 @@
 {
   "name": "@gasboost/create",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Capability-driven project generator for the Gasboost ecosystem",
   "type": "module",
   "bin": {
