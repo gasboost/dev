@@ -2,6 +2,7 @@
 
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { installFrontend } from "./registry.js";
 import { writeProjectFiles } from "./filesystem.js";
 import { createProjectFiles } from "./generator.js";
 import { projectNameFromTarget } from "./projectName.js";
@@ -49,6 +50,8 @@ async function run(args: readonly string[]): Promise<number> {
       targetDirectory,
       files,
     });
+
+    await installFrontend({ targetDirectory, capabilities });
 
     console.log("");
     console.log(`Created ${projectName} in ${targetDirectory}`);
