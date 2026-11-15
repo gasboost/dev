@@ -1,413 +1,135 @@
 # @gasboost/create
 
-Capability-driven project generator for the gasboost ecosystem.
+Generate a runnable GAS BOOST application skeleton by selecting Database, Authentication, Frontend and Realtime capabilities. Node.js 24+ and pnpm are required. Frontend generation also needs network access for the shadcn CLI, the GAS BOOST GitHub Registry and npm.
 
-`@gasboost/create` creates a minimal gasboost project from the capabilities your application actually needs.
-
-Instead of selecting package names directly, you select application capabilities such as Database, Authentication, Frontend, and Realtime. The generator then composes the required gasboost packages, configuration, runtime support, and source files.
-
-## Usage
-
-Create a project with:
-
-```bash
-npm create @gasboost -- my-app
-```
-
-or:
-
-```bash
+```sh
 pnpm dlx @gasboost/create my-app
-```
-
-If the directory is omitted:
-
-```bash
-pnpm dlx @gasboost/create
-```
-
-the project is created in:
-
-```text
-./gasboost-app
-```
-
-## Capabilities
-
-The generator asks only about application capabilities.
-
-### Database
-
-Adds Google Sheets persistence using:
-
-```text
-@gasboost/sheetorm
-@gasboost/table
-```
-
-The generated local development runtime also provides the Spreadsheet stubs required to evaluate the backend locally.
-
-### Authentication
-
-Adds authentication using:
-
-```text
-@gasboost/auth
-@gasboost/auth-app
-@gasboost/auth-sheetorm
-```
-
-Authentication requires a database.
-
-Therefore:
-
-```text
-Authentication => Database
-```
-
-If Authentication is enabled, Database is enabled automatically.
-
-### Frontend
-
-Adds a minimal React frontend using:
-
-```text
-react
-react-dom
-@gasboost/client
-```
-
-The generated UI contains only the minimum code required to verify communication with the backend through the `hello` RPC.
-
-It is not a tutorial or example business application.
-
-### Realtime
-
-Adds Firebase Realtime Database integration using:
-
-```text
-@gasboost/realtime-firebase
-@gasboost/auth-realtime-firebase
-@gasboost/replica
-@gasboost/rls
-firebase
-```
-
-Realtime requires:
-
-```text
-Database
-Authentication
-Frontend
-```
-
-Therefore:
-
-```text
-Realtime => Database + Authentication + Frontend
-```
-
-Missing capabilities are enabled automatically.
-
-## Generated Profiles
-
-Capability normalization produces seven valid project profiles.
-
-| Database | Authentication | Frontend | Realtime |
-| -------- | -------------- | -------- | -------- |
-| No       | No             | No       | No       |
-| No       | No             | Yes      | No       |
-| Yes      | No             | No       | No       |
-| Yes      | No             | Yes      | No       |
-| Yes      | Yes            | No       | No       |
-| Yes      | Yes            | Yes      | No       |
-| Yes      | Yes            | Yes      | Yes      |
-
-Invalid combinations are normalized automatically.
-
-For example, selecting Realtime produces:
-
-```text
-Database       Yes
-Authentication Yes
-Frontend       Yes
-Realtime       Yes
-```
-
-## Generated Project
-
-Every generated project contains a gasboost backend.
-
-```text
-.
-├── appsscript.json
-├── gasboost.config.ts
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-└── src
-    └── backend
-        └── main.ts
-```
-
-The backend always contains a public `hello` RPC.
-
-Additional files are composed according to the selected capabilities.
-
-A project with all capabilities enabled has a structure similar to:
-
-```text
-.
-├── appsscript.json
-├── gasboost.config.ts
-├── index.html
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-└── src
-    ├── backend
-    │   ├── main.ts
-    │   └── lib
-    │       ├── auth.ts
-    │       ├── db.ts
-    │       ├── firebase.ts
-    │       ├── rls.ts
-    │       └── rtdb.ts
-    ├── frontend
-    │   ├── App.tsx
-    │   ├── main.tsx
-    │   └── lib
-    │       ├── appsscript.ts
-    │       ├── firebase.ts
-    │       └── replica.ts
-    └── shared
-        └── tables.ts
-```
-
-The exact structure depends on the selected capabilities.
-
-## Development
-
-After generation:
-
-```bash
+# or: npm create @gasboost -- my-app
 cd my-app
 pnpm install
 pnpm dev
 ```
 
-Build:
+The default target is `./gasboost-app`. Existing files are never overwritten by the generator. Frontend installation uses shadcn without `--overwrite`; preserve existing customizations when shadcn asks about a conflict.
 
-```bash
-pnpm build
+The generator creates configuration and connected infrastructure. It does not create business tables, example RPCs, business repositories or tests. Start adding application features directly without deleting a sample application.
+
+## Capabilities and Registry ownership
+
+Authentication requires Database. Realtime requires Database, Authentication and Frontend. Normalization preserves seven profiles:
+
+| Database | Authentication | Frontend | Realtime | Frontend Registry item               |
+| -------- | -------------- | -------- | -------- | ------------------------------------ |
+| No       | No             | No       | No       | —                                    |
+| No       | No             | Yes      | No       | `gasboost/ui/frontend`               |
+| Yes      | No             | No       | No       | —                                    |
+| Yes      | No             | Yes      | No       | `gasboost/ui/frontend`               |
+| Yes      | Yes            | No       | No       | —                                    |
+| Yes      | Yes            | Yes      | No       | `gasboost/ui/frontend-auth`          |
+| Yes      | Yes            | Yes      | Yes      | `gasboost/ui/frontend-auth-realtime` |
+
+For Frontend, generation executes:
+
+```sh
+pnpm dlx shadcn@latest add gasboost/ui/<selected-item> --yes
 ```
 
-Typecheck:
+The [GAS BOOST UI Registry](https://github.com/gasboost/ui) owns **all** `src/frontend` sources and `src/shared/routes.ts`, including App, main, styles, authentication UI, guards and providers. Completed frontend items were added in [gasboost/ui#17](https://github.com/gasboost/ui/pull/17). This package only creates `index.html`, `components.json`, TypeScript/Vite aliases, Tailwind configuration and the backend contract. Registry dependencies determine frontend packages and files. There is no frontend template copy in this generator.
 
-```bash
+A failed Registry installation fails generation with a retry command. The written skeleton remains available; run the reported command from the target directory to complete installation. `createProjectFiles()` is the pure configuration/backend renderer; programmatic users must also call `installFrontend({ targetDirectory, capabilities })` after writing the files.
+
+`@gasboost/react@0.4.3` currently has a transitive `@gasboost/auth-client` dependency. Unauthenticated frontends do not directly install or initialize authentication, but that upstream package remains in the lockfile. `@gasboost/bootstrap@0.5.0` also declares a React peer for its React subpath, so pnpm resolves that peer even for backend-only authentication. The generator does not add frontend sources or a direct React dependency to that profile. Removing these transitive/peer packages requires upstream package changes.
+
+## Generated structure
+
+Database + Authentication + Frontend produces:
+
+```text
+my-app/
+├── appsscript.json
+├── gasboost.config.ts
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+├── vitest.config.ts
+├── components.json
+├── index.html
+├── dev/runtime.ts
+├── src/
+│   ├── shared/{tables,policy,routes}.ts
+│   ├── backend/
+│   │   ├── main.ts
+│   │   └── lib/{sheets,db,auth,bootstrap,templateValue}.ts
+│   └── frontend/                # installed exclusively by the UI Registry
+└── tests/mocks/{runtime,db}.ts
+```
+
+Unselected capabilities do not create their files or direct dependencies. Database without authentication starts with an empty table list. Authentication adds only the authentication and authorization tables. The policy starts without business permissions or invented business roles; Bootstrap uses the library's default administrator role.
+
+## Development and builds
+
+```sh
+pnpm dev
 pnpm typecheck
-```
-
-Run tests:
-
-```bash
 pnpm test
-```
-
-Open the gasboost console:
-
-```bash
+pnpm build
 pnpm console
 ```
 
-## Project Definition
+Vite `mode` describes the environment. `BUILD_TARGET=server|client` selects the build target via portable `cross-env` scripts; for example, `pnpm build:server --mode staging`. `pnpm build` cleans once, builds the single client HTML when selected, adds the GAS backend without deleting HTML, copies the GAS manifest and generates RTDB rules when selected. Local plugins run only for `command === "serve"`.
 
-Application infrastructure is declared in:
+Database development uses `localRpc.database` with empty records derived from the real table definitions. It uses the in-memory gateway instead of a remote spreadsheet. Authentication development creates a temporary bootstrap challenge and prints its URL in the terminal. Open that URL to initialize the local database and sign in with the local identity. `GASBOOST_LOCAL_USER_EMAIL` overrides the default development identity. The challenge expires after 30 minutes; restart Vite for a fresh challenge and database. No users or business records are seeded. Authentication-only backend projects can submit the challenge to `initializeApp` through the local RPC endpoint; add a frontend if browser setup is needed.
 
-```text
-gasboost.config.ts
+The local Bootstrap JSON and GAS template both expose only `{ initialized: boolean }`. The bootstrap token belongs in the setup URL, never in the injected JSON.
+
+## Database, authentication and deployment
+
+`gasboost.config.ts` imports `defineGasboostConfig` from the canonical `@gasboost/config` package. Manage Google Apps Script resources with `pnpm console`.
+
+Set `GASBOOST_SPREADSHEET_ID` in GAS Script Properties for Database; container-bound scripts can use the active spreadsheet. `sheets.ts` owns spreadsheet resolution, `sheetTables` and `sheetGateway`. `db.ts` constructs the real `SheetDB` with those exports, CacheService, Utilities and LockService.
+
+Authentication uses Apps Script identities, an authorization repository and `AppsScriptBootstrap`. Public Bootstrap and authentication handlers precede authentication middleware. Register business handlers after that middleware and apply server-side authorization for your application. Self-service signup is disabled; Bootstrap registers the first administrator. Add an explicit provisioning flow if additional users are needed.
+
+For the deployed frontend, use a deployed GAS `/exec` URL. Bootstrap sends the effective user a one-time setup link through MailApp. The active/effective users must match. The backend evaluates the single HTML as a GAS template and safely injects Bootstrap state. Complete initialization before signing in. Without Frontend, the GET handler returns the public Bootstrap state as JSON and still issues the setup email; call `initializeApp` with the emailed token from your Apps Script integration.
+
+## Test foundations
+
+`vitest.config.ts` configures `setupFiles` for `tests/mocks/runtime.ts` and, with Database, `tests/mocks/db.ts`. `pnpm test` succeeds with zero tests. No `*.test.ts` or `*.spec.ts` files are generated.
+
+The runtime uses published `@gasboost/fake-core` and `@gasboost/fake-node` services, plus SheetORM stubs when selected. It does not mock HtmlService. Set Session identity or Script Properties explicitly in your tests when testing authentication.
+
+The database Fake mocks **only** `src/backend/lib/sheets`: `importOriginal` keeps the real generated tables and substitutes an `InMemoryGateway` backed by a store whose headers come from those tables. The real `db.ts`, SheetDB, repositories, handlers and middleware execute unchanged. Test presentation using `app.dispatch(name, input, metadata)` rather than `appsScriptClient` or HtmlService.
+
+## Realtime
+
+Only Realtime adds backend Firebase token issuance, version publishing and rules generation. The Registry provides Firebase Auth synchronization, table notification hooks and the empty Replica. Configure `.env.local` from `.env.example` with Firebase Web App settings. Backend Script Properties are:
+
+- `FIREBASE_SERVICE_ACCOUNT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+- `FIREBASE_DATABASE_URL`
+
+For local development, put the same three backend values in `.env.local` (or the shell environment). Vite loads them for the selected mode into the local PropertiesService. These names must remain unprefixed; only Firebase Web App settings use `VITE_`. Never expose the service-account key to the browser.
+
+No real keys, Firebase project IDs or deployment IDs are generated. An actual Firebase project and valid credentials are required for Firebase sign-in and publication. Local backend/database operations and builds do not require those credentials; signing into a Realtime app does.
+
+The current published `@gasboost/realtime-firebase@0.9.0` stores **version notifications**, not application records. `db.afterCommit` publishes only changes to tables explicitly added to `src/shared/realtime.ts`. This list starts empty and excludes all authentication tables. Add shared application tables to the Registry's frontend Replica and use its `useRtdb` hook to invalidate application queries. Fetch records through authenticated, authorized RPCs; add application RLS policies when defining those tables. A fictitious business RLS policy is not generated.
+
+```sh
+pnpm rules
 ```
 
-The canonical config API is provided by `@gasboost/config`.
+Rules deny root reads/writes and allow authenticated reads of version notifications. Never publish authentication or other sensitive records to RTDB. Generated rules must be deployed to your Firebase project before using notifications.
 
-```ts
-import { defineGasboostConfig } from "@gasboost/config";
+## Generator validation
 
-export default defineGasboostConfig({
-  appsScript: {
-    type: "webapp",
-    rootDir: "./dist",
-  },
-});
-```
-
-`gasboost.config.ts` represents the project's Desired State.
-
-When Realtime is enabled, Firebase Realtime Database configuration is added:
-
-```ts
-import { defineGasboostConfig } from "@gasboost/config";
-
-export default defineGasboostConfig({
-  appsScript: {
-    type: "webapp",
-    rootDir: "./dist",
-  },
-
-  firebase: {
-    realtimeDatabase: {
-      source: "./src/backend/lib/rtdb.ts",
-      out: "./database.rules.json",
-    },
-  },
-});
-```
-
-Credentials and detected remote state do not belong in this file.
-
-## Database
-
-Database projects use SheetORM.
-
-The spreadsheet ID can be supplied through Apps Script Script Properties:
-
-```text
-GASBOOST_SPREADSHEET_ID
-```
-
-Container-bound projects may fall back to their active spreadsheet.
-
-The local development runtime provides a deterministic Spreadsheet stub so generated projects can run locally without creating a remote spreadsheet first.
-
-## Authentication
-
-Authentication projects add the gasboost authentication infrastructure and SheetORM-backed repository.
-
-Authentication handlers and the starter `hello` RPC are public.
-
-Authentication middleware is installed after those public handlers so application RPCs added after it can require a valid session token.
-
-## Credentials
-
-`@gasboost/create` does not create, register, or modify external credentials.
-
-Firebase service-account credentials are not embedded into generated source code.
-
-For Realtime projects, the backend expects these Apps Script Script Properties:
-
-```text
-FIREBASE_SERVICE_ACCOUNT_EMAIL
-FIREBASE_PRIVATE_KEY
-```
-
-They must be configured explicitly by the developer.
-
-The generator never writes these values to Apps Script Properties Service.
-
-Frontend Firebase configuration is provided using environment variables such as:
-
-```text
-VITE_FIREBASE_API_KEY
-VITE_FIREBASE_AUTH_DOMAIN
-VITE_FIREBASE_DATABASE_URL
-VITE_FIREBASE_PROJECT_ID
-VITE_FIREBASE_APP_ID
-```
-
-No fixed Firebase project ID, API key, deployment ID, or service-account credential is generated.
-
-## Realtime Data
-
-Realtime synchronization is intentionally limited to application data.
-
-Authentication infrastructure is not exposed through Firebase Realtime Database and is not included in the browser replica.
-
-For example:
-
-```text
-items
-```
-
-can be synchronized while authentication users, accounts, password-reset data, and other authentication infrastructure remain server-side.
-
-Generated Realtime Database access is protected through `@gasboost/rls`.
-
-## Design Principles
-
-`@gasboost/create` follows a few strict rules:
-
-- generate capabilities, not tutorials
-- generate only infrastructure selected by the developer
-- keep package boundaries explicit
-- avoid unused dependencies
-- do not embed project-specific credentials
-- do not embed deployment identifiers
-- do not perform hidden remote configuration
-- keep authentication infrastructure server-side
-- produce runnable and type-safe projects
-
-The generator provides a clean architectural starting point rather than a sample application that must later be dismantled.
-
-## Validation
-
-The generator itself is validated with:
-
-```bash
+```sh
 pnpm --filter @gasboost/create typecheck
 pnpm --filter @gasboost/create test
 pnpm --filter @gasboost/create build
-pnpm --filter @gasboost/create smoke
-```
-
-Generated projects are also tested end-to-end across all seven capability profiles.
-
-The E2E suite verifies:
-
-```text
-generate
-  ↓
-pnpm install
-  ↓
-pnpm typecheck
-  ↓
-pnpm build
-  ↓
-pnpm dev
-  ↓
-hello RPC
-  ↓
-pnpm console
-```
-
-Frontend profiles additionally verify the frontend response.
-
-Realtime profiles additionally verify Firebase RTDB Security Rules generation.
-
-Run the E2E suite with:
-
-```bash
 pnpm --filter @gasboost/create test:e2e
 ```
 
-## Package
-
-npm:
-
-```text
-@gasboost/create
-```
-
-Repository:
-
-```text
-gasboost/dev
-```
-
-Source:
-
-```text
-packages/create-gasboost
-```
+E2E creates all seven profiles with published dependencies, runs the real shadcn CLI for the four frontend profiles, checks strict peers, typecheck, build, zero-test execution, dev module responses and Console startup. Generator-owned temporary tests verify SheetORM writes/reads through the real generated DB with only its gateway replaced, Bootstrap initialization/rejection, authentication and the authenticated Firebase token boundary. Test fixtures are not shipped in generated applications. RTDB rules and token signing are checked locally; real Firebase/GAS credentials, deployment and production access are outside this E2E suite.
 
 ## License
 

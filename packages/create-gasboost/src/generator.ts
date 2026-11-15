@@ -29,6 +29,7 @@ export function createProjectFiles({
     fragments.push(
       databaseFragment({
         authentication: capabilities.authentication,
+        realtime: capabilities.realtime,
       }),
     );
   }
@@ -37,20 +38,19 @@ export function createProjectFiles({
     fragments.push(
       authFragment({
         realtime: capabilities.realtime,
+        frontend: capabilities.frontend,
       }),
     );
   }
 
   if (capabilities.frontend) {
-    fragments.push(frontendFragment());
+    fragments.push(
+      frontendFragment({ authentication: capabilities.authentication }),
+    );
   }
 
   if (capabilities.realtime) {
-    fragments.push(
-      realtimeFragment({
-        projectName,
-      }),
-    );
+    fragments.push(realtimeFragment());
   }
 
   const merged = mergeProjectFragments(fragments);

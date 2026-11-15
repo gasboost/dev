@@ -7,3 +7,5 @@ export {
 export { createProjectFiles, type GeneratedFile } from "./generator.js";
 
 export { projectNameFromTarget } from "./projectName.js";
+
+export { frontendRegistryItem, installFrontend } from "./registry.js";

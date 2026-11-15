@@ -1,6 +1,13 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  rm,
+  writeFile,
+  readFile,
+  readdir,
+} from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
@@ -10,6 +17,8 @@ import {
   type CapabilitySelection,
 } from "../src/capabilities.js";
 import { createProjectFiles } from "../src/generator.js";
+import { installFrontend } from "../src/registry.js";
+import { runtimeContract } from "./runtime-contract.js";
 
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -55,6 +64,7 @@ async function runCommand({
   return new Promise((resolvePromise, reject) => {
     const child = spawn(pnpmCommand, [...args], {
       cwd,
+      detached: process.platform !== "win32",
       env: {
         ...process.env,
         CI: "1",
@@ -62,6 +72,15 @@ async function runCommand({
       stdio: ["ignore", "pipe", "pipe"],
     });
 
+    const timer = setTimeout(() => {
+      try {
+        if (process.platform !== "win32" && child.pid !== undefined)
+          process.kill(-child.pid, "SIGTERM");
+        else child.kill("SIGTERM");
+      } catch {
+        child.kill("SIGTERM");
+      }
+    }, 120_000);
     let stdout = "";
     let stderr = "";
 
@@ -77,6 +96,7 @@ async function runCommand({
     });
 
     child.on("error", (error) => {
+      clearTimeout(timer);
       reject(
         new Error(
           [
@@ -90,6 +110,7 @@ async function runCommand({
     });
 
     child.on("close", (code, signal) => {
+      clearTimeout(timer);
       if (code === 0) {
         resolvePromise({
           stdout,
@@ -237,7 +258,7 @@ async function getAvailablePort(): Promise<number> {
   });
 }
 
-async function waitForHello({
+async function waitForBackend({
   baseUrl,
   running,
 }: {
@@ -254,7 +275,7 @@ async function waitForHello({
 
       throw new Error(
         [
-          "Dev server exited before hello RPC became ready.",
+          "Dev server exited before backend dispatch became ready.",
           "",
           "--- stdout ---",
           output.stdout,
@@ -266,25 +287,24 @@ async function waitForHello({
     }
 
     try {
-      const response = await fetch(`${baseUrl}/__gasboost/hello`, {
-        method: "POST",
+      const response = await fetch(
+        `${baseUrl}/__gasboost/__missing_handler__`,
+        {
+          method: "POST",
 
-        headers: {
-          "Content-Type": "application/json",
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: "{}",
         },
-
-        body: "{}",
-      });
+      );
 
       const body = await response.text();
 
       lastResponse = `${response.status} ${body}`;
 
-      if (response.ok) {
-        expect(JSON.parse(body)).toEqual({
-          message: "Hello from gasboost",
-        });
-
+      if (response.status === 500 && body.includes("GASBOOST_RPC_ERROR_V1:")) {
         return;
       }
     } catch (error) {
@@ -298,7 +318,7 @@ async function waitForHello({
 
   throw new Error(
     [
-      "Timed out waiting for hello RPC.",
+      "Timed out waiting for backend dispatch.",
       `Last response: ${lastResponse}`,
       "",
       "--- stdout ---",
@@ -322,6 +342,15 @@ async function verifyFrontend({
   expect(response.ok).toBe(true);
 
   expect(html).toContain('id="root"');
+  for (const path of [
+    "src/frontend/main.tsx",
+    "src/frontend/App.tsx",
+    "src/frontend/style.css",
+  ]) {
+    const module = await fetch(new URL(path, baseUrl));
+    expect(module.ok, await module.text()).toBe(true);
+  }
+  expect(html).not.toContain("<?!= __BOOTSTRAP__ ?>");
 }
 
 async function waitForConsoleUrl(running: RunningCommand): Promise<string> {
@@ -394,10 +423,10 @@ async function verifyConsole({ cwd }: { readonly cwd: string }): Promise<void> {
 
 async function verifyDev({
   cwd,
-  frontend,
+  capabilities,
 }: {
   readonly cwd: string;
-  readonly frontend: boolean;
+  readonly capabilities: CapabilitySelection;
 }): Promise<void> {
   const port = await getAvailablePort();
 
@@ -418,12 +447,26 @@ async function verifyDev({
   });
 
   try {
-    await waitForHello({
+    await waitForBackend({
       baseUrl,
       running,
     });
 
-    if (frontend) {
+    if (capabilities.authentication) {
+      const challengeUrl = /Local bootstrap: (http:\/\/[^\s]+)/.exec(
+        running.output().stdout,
+      )?.[1];
+      expect(challengeUrl).toBeTruthy();
+      const token = new URL(challengeUrl!).searchParams.get("token");
+      const initialized = await fetch(`${baseUrl}/__gasboost/initializeApp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: { token } }),
+      });
+      expect(await initialized.json()).toEqual({ initialized: true });
+    }
+
+    if (capabilities.frontend) {
       await verifyFrontend({
         baseUrl,
       });
@@ -500,16 +543,44 @@ describe(
             capabilities,
           });
 
+          await installFrontend({
+            targetDirectory: temporaryRoot,
+            capabilities,
+          });
+
           await runCommand({
             cwd: temporaryRoot,
 
             args: [
               "install",
+              "--strict-peer-dependencies",
               "--frozen-lockfile=false",
               "--prefer-offline",
               "--reporter=append-only",
             ],
           });
+
+          const installed = JSON.parse(
+            await readFile(join(temporaryRoot, "package.json"), "utf8"),
+          );
+          if (!capabilities.authentication)
+            for (const name of [
+              "@gasboost/auth",
+              "@gasboost/auth-client",
+              "@gasboost/bootstrap",
+            ])
+              expect(installed.dependencies[name]).toBeUndefined();
+          if (!capabilities.realtime)
+            for (const name of [
+              "firebase",
+              "@gasboost/realtime-firebase",
+              "@gasboost/replica",
+            ])
+              expect(installed.dependencies[name]).toBeUndefined();
+          if (!capabilities.database)
+            expect(
+              installed.dependencies["@gasboost/sheetorm"],
+            ).toBeUndefined();
 
           await runCommand({
             cwd: temporaryRoot,
@@ -521,11 +592,71 @@ describe(
             args: ["run", "build"],
           });
 
+          const built = await readFile(
+            join(temporaryRoot, "dist/main.js"),
+            "utf8",
+          );
+          expect(built).not.toContain("function hello()");
+          expect(
+            JSON.parse(
+              await readFile(
+                join(temporaryRoot, "dist/appsscript.json"),
+                "utf8",
+              ),
+            ),
+          ).toHaveProperty("runtimeVersion", "V8");
+          if (capabilities.frontend) {
+            const html = await readFile(
+              join(temporaryRoot, "dist/index.html"),
+              "utf8",
+            );
+            expect(html).not.toContain('src="/src/frontend/main.tsx"');
+            if (capabilities.authentication)
+              expect(html).toContain("<?!= __BOOTSTRAP__ ?>");
+          }
           if (capabilities.realtime) {
-            await runCommand({
-              cwd: temporaryRoot,
-              args: ["run", "rules"],
+            const rules = JSON.parse(
+              await readFile(
+                join(temporaryRoot, "database.rules.json"),
+                "utf8",
+              ),
+            );
+            expect(rules.rules).toMatchObject({
+              ".read": false,
+              ".write": false,
+              syncVersions: { ".read": "auth != null" },
             });
+          }
+
+          // Zero-test output is checked before adding generator-owned test fixtures.
+          await runCommand({ cwd: temporaryRoot, args: ["test"] });
+          expect(await readdir(join(temporaryRoot, "tests"))).toEqual([
+            "mocks",
+          ]);
+          await writeFile(
+            join(temporaryRoot, "tests", "foundation.test.ts"),
+            runtimeContract(capabilities),
+          );
+          if (capabilities.database && !capabilities.authentication) {
+            await writeFile(
+              join(temporaryRoot, "src/shared/tables.ts"),
+              `import { defineTable } from "@gasboost/table";
+import { z } from "zod";
+export const tables = [defineTable({ name: "fixture", schema: z.object({ id: z.string(), value: z.string() }), primaryKey: "id" })] as const;`,
+            );
+          }
+          await runCommand({ cwd: temporaryRoot, args: ["test"] });
+          // Remove fixtures before checking the unchanged application's dev server.
+          await rm(join(temporaryRoot, "tests", "foundation.test.ts"));
+          if (capabilities.database && !capabilities.authentication) {
+            const original = createProjectFiles({
+              projectName,
+              capabilities,
+            }).find((file) => file.path === "src/shared/tables.ts")!;
+            await writeFile(
+              join(temporaryRoot, original.path),
+              original.content,
+            );
           }
 
           /*
@@ -533,13 +664,12 @@ describe(
            *
            * - Vite starts
            * - backend entry can be evaluated
-           * - hello RPC is actually callable
-           * - auth profiles do not accidentally protect hello
+           * - missing handlers reach the actual dispatcher
            * - database profiles can initialize locally
            */
           await verifyDev({
             cwd: temporaryRoot,
-            frontend: capabilities.frontend,
+            capabilities,
           });
 
           /*
